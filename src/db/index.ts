@@ -43,7 +43,15 @@ class NotesDB extends Dexie {
 
 export const db = new NotesDB()
 
-export async function seedIfEmpty() {
+// Module-level singleton prevents double-seeding under React StrictMode
+let _seedPromise: Promise<void> | null = null
+
+export function seedIfEmpty(): Promise<void> {
+  if (!_seedPromise) _seedPromise = _doSeed()
+  return _seedPromise
+}
+
+async function _doSeed() {
   const count = await db.notes.count()
   if (count > 0) return
 
@@ -57,34 +65,6 @@ export async function seedIfEmpty() {
   ])
 
   await db.notes.bulkAdd([
-    {
-      id: crypto.randomUUID(),
-      title: '欢迎使用笔记应用',
-      content: JSON.stringify({
-        type: 'doc',
-        content: [
-          { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: '欢迎使用 ✨' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '这是一款基于 Vite + React + TipTap 构建的现代笔记应用。' }] },
-          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '功能特性' }] },
-          { type: 'bulletList', content: [
-            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: '支持富文本编辑（标题、列表、代码块、引用等）' }] }] },
-            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: '输入 / 呼出斜杠命令菜单' }] }] },
-            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: '选中文字查看浮动工具栏' }] }] },
-            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: '自动保存到 IndexedDB' }] }] },
-            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: '文件夹分类管理' }] }] },
-          ]},
-          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '代码示例' }] },
-          { type: 'codeBlock', attrs: { language: 'typescript' }, content: [{ type: 'text', text: 'const hello = "Hello, World!"\nconsole.log(hello)' }] },
-          { type: 'blockquote', content: [{ type: 'paragraph', content: [{ type: 'text', text: '好记性不如烂笔头。开始记录你的想法吧！' }] }] },
-        ],
-      }),
-      folderId: null,
-      tags: ['入门'],
-      starred: true,
-      createdAt: now,
-      updatedAt: now,
-      wordCount: 80,
-    },
     {
       id: crypto.randomUUID(),
       title: '项目计划',
@@ -126,4 +106,45 @@ export async function seedIfEmpty() {
       wordCount: 45,
     },
   ])
+}
+
+// Removes duplicate folders and notes inserted by React StrictMode double-mount.
+// Groups by (name + parentId) for folders, (title + createdAt bucket) for notes.
+export async function deduplicateDB() {
+  // --- folders ---
+  const allFolders = await db.folders.toArray()
+  const folderSeen = new Map<string, string>() // key → keep id
+  const folderRemap = new Map<string, string>() // deleted id → kept id
+
+  for (const f of allFolders) {
+    const key = `${f.parentId ?? ''}::${f.name}`
+    if (!folderSeen.has(key)) {
+      folderSeen.set(key, f.id)
+    } else {
+      folderRemap.set(f.id, folderSeen.get(key)!)
+      await db.folders.delete(f.id)
+    }
+  }
+
+  // Re-point notes that referenced a deleted folder
+  if (folderRemap.size > 0) {
+    const notesToFix = await db.notes.filter(n => n.folderId !== null && folderRemap.has(n.folderId!)).toArray()
+    for (const n of notesToFix) {
+      await db.notes.update(n.id, { folderId: folderRemap.get(n.folderId!)! })
+    }
+  }
+
+  // --- notes: deduplicate by title + createdAt within 2 s window ---
+  const allNotes = await db.notes.toArray()
+  const noteSeen = new Map<string, number>() // key → kept createdAt
+
+  for (const n of allNotes) {
+    const bucket = Math.floor(n.createdAt / 2000)
+    const key = `${n.title}::${bucket}`
+    if (!noteSeen.has(key)) {
+      noteSeen.set(key, n.createdAt)
+    } else {
+      await db.notes.delete(n.id)
+    }
+  }
 }

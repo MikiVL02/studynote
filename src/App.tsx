@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Sidebar } from './components/sidebar/Sidebar'
 import { Editor } from './components/editor/Editor'
 import { useAppStore } from './stores/appStore'
-import { seedIfEmpty } from './db'
+import { seedIfEmpty, deduplicateDB } from './db'
 
 export default function App() {
   const { loadAll, theme } = useAppStore()
@@ -12,7 +12,9 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    seedIfEmpty().then(() => loadAll())
+    seedIfEmpty()
+      .then(() => deduplicateDB())
+      .then(() => loadAll())
   }, [])
 
   return (

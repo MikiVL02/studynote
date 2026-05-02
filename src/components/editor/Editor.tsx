@@ -8,6 +8,7 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { Table } from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
+import { WelcomeView } from './WelcomeView'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import CharacterCount from '@tiptap/extension-character-count'
@@ -19,7 +20,7 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code,
   Highlighter, List, ListOrdered, Quote,
   Heading1, Heading2, Heading3, Minus, CheckSquare, Table as TableIcon,
-  Type,
+  Type, Star,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { countWords } from '../../lib/utils'
@@ -66,7 +67,7 @@ function SlashMenu({ items, selectedIndex, onSelect }: {
 }
 
 export function Editor() {
-  const { activeNoteId, notes, updateNote } = useAppStore()
+  const { activeNoteId, notes, updateNote, toggleStar } = useAppStore()
   const activeNote = notes.find(n => n.id === activeNoteId)
 
   const [title, setTitle] = useState(activeNote?.title ?? '')
@@ -219,28 +220,35 @@ export function Editor() {
     }, 500)
   }
 
-  if (!activeNote) {
-    return (
-      <div className="flex-1 flex items-center justify-center" style={{ color: 'var(--text-faint)' }}>
-        <div className="text-center">
-          <div className="text-5xl mb-4 opacity-20">✏️</div>
-          <p className="text-base">选择一篇笔记，或创建新笔记</p>
-        </div>
-      </div>
-    )
+  if (!activeNote || activeNoteId === '__welcome__') {
+    return <WelcomeView />
   }
 
   return (
     <div className="flex-1 flex flex-col min-w-0 h-full" style={{ background: 'var(--bg)' }}>
       {/* Title */}
       <div className="px-12 pt-10 pb-0 max-w-3xl mx-auto w-full">
-        <input
-          value={title}
-          onChange={e => handleTitleChange(e.target.value)}
-          placeholder="无标题"
-          className="w-full bg-transparent outline-none text-3xl font-bold"
-          style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}
-        />
+        <div className="flex items-start gap-3">
+          <input
+            value={title}
+            onChange={e => handleTitleChange(e.target.value)}
+            placeholder="无标题"
+            className="flex-1 bg-transparent outline-none text-3xl font-bold min-w-0"
+            style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}
+          />
+          <button
+            onClick={() => activeNoteId && toggleStar(activeNoteId)}
+            title={activeNote.starred ? '取消收藏' : '收藏'}
+            className="toolbar-btn shrink-0 mt-2"
+            style={{ width: 28, height: 28 }}
+          >
+            <Star
+              size={16}
+              fill={activeNote.starred ? '#f59e0b' : 'none'}
+              style={{ color: activeNote.starred ? '#f59e0b' : 'var(--text-faint)' }}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Floating bubble menu rendered via portal */}

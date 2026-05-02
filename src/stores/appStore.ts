@@ -32,7 +32,7 @@ interface AppState {
 export const useAppStore = create<AppState>((set, get) => ({
   notes: [],
   folders: [],
-  activeNoteId: null,
+  activeNoteId: '__welcome__' as string | null,
   activeFolderId: 'all',
   searchQuery: '',
   theme: (localStorage.getItem('theme') as 'light' | 'dark') || 'light',
@@ -43,8 +43,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       db.folders.orderBy('order').toArray(),
     ])
     set({ notes, folders })
-    if (notes.length > 0 && !get().activeNoteId) {
-      set({ activeNoteId: notes[0].id })
+    // Keep welcome screen as default; only auto-select if already on a real note
+    const cur = get().activeNoteId
+    if (cur && cur !== '__welcome__' && !notes.find(n => n.id === cur)) {
+      set({ activeNoteId: '__welcome__' })
     }
   },
 
@@ -81,7 +83,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     await db.notes.delete(id)
     set(s => {
       const notes = s.notes.filter(n => n.id !== id)
-      const activeNoteId = s.activeNoteId === id ? (notes[0]?.id ?? null) : s.activeNoteId
+      const activeNoteId = s.activeNoteId === id ? '__welcome__' : s.activeNoteId
       return { notes, activeNoteId }
     })
   },

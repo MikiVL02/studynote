@@ -22,7 +22,7 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code,
   Highlighter, List, ListOrdered, Quote,
   Heading1, Heading2, Heading3, Minus, CheckSquare, Table as TableIcon,
-  Type, Star, ImageIcon, Maximize2, Minimize2,
+  Type, Star, ImageIcon, Maximize2, Minimize2, Hash, X,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { countWords } from '../../lib/utils'
@@ -82,6 +82,7 @@ export function Editor() {
   const [title, setTitle] = useState(activeNote?.title ?? '')
   const [wordCount, setWordCount] = useState(0)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
+  const [tagInput, setTagInput] = useState('')
 
   const [slashOpen, setSlashOpen] = useState(false)
   const [slashQuery, setSlashQuery] = useState('')
@@ -265,6 +266,7 @@ export function Editor() {
     setWordCount(activeNote.wordCount)
     setSaveStatus('saved')
     setSlashOpen(false)
+    setTagInput('')
     setTimeout(() => { isLoadingRef.current = false }, 100)
   }, [activeNoteId, editor])
 
@@ -315,6 +317,47 @@ export function Editor() {
               ? <Minimize2 size={15} style={{ color: 'var(--accent)' }} />
               : <Maximize2 size={15} style={{ color: 'var(--text-faint)' }} />}
           </button>
+        </div>
+      </div>
+
+      {/* Tag row */}
+      <div className="px-12 pb-2 max-w-3xl mx-auto w-full">
+        <div className="flex items-center flex-wrap gap-1.5 min-h-[26px]">
+          {activeNote.tags.map(tag => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+              style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+            >
+              <Hash size={10} />
+              {tag}
+              <button
+                onMouseDown={e => { e.preventDefault(); updateNote(activeNoteId!, { tags: activeNote.tags.filter(t => t !== tag) }, { silent: true }) }}
+                className="hover:opacity-70 transition-opacity"
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+          <input
+            value={tagInput}
+            onChange={e => setTagInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                const val = tagInput.trim()
+                if (val && !activeNote.tags.includes(val)) {
+                  updateNote(activeNoteId!, { tags: [...activeNote.tags, val] }, { silent: true })
+                }
+                setTagInput('')
+              } else if (e.key === 'Backspace' && tagInput === '' && activeNote.tags.length > 0) {
+                updateNote(activeNoteId!, { tags: activeNote.tags.slice(0, -1) }, { silent: true })
+              }
+            }}
+            placeholder={activeNote.tags.length === 0 ? '添加标签…' : '+'}
+            className="bg-transparent outline-none text-xs"
+            style={{ color: 'var(--text-muted)', minWidth: 60, width: tagInput.length * 8 + 60 }}
+          />
         </div>
       </div>
 

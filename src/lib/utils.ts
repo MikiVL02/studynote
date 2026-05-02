@@ -20,6 +20,21 @@ export function formatDate(timestamp: number) {
   return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function collectText(node: any): string {
+  if (typeof node.text === 'string') return node.text
+  if (Array.isArray(node.content)) return node.content.map(collectText).join(' ')
+  return ''
+}
+
+export function extractTextFromJSON(content: string): string {
+  try {
+    return collectText(JSON.parse(content))
+  } catch {
+    return ''
+  }
+}
+
 export function countWords(text: string) {
   const trimmed = text.trim()
   if (!trimmed) return 0

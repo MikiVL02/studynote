@@ -3,7 +3,14 @@ import {
   Search, Plus, Star, FileText, Folder, FolderOpen,
   ChevronRight, ChevronDown,
   Trash2, Edit2, Moon, Sun, FolderPlus, Hash, BookOpen,
+  ArrowUpDown, Check, X,
 } from 'lucide-react'
+import {
+  DndContext, DragOverlay, useDraggable, useDroppable,
+  useSensor, useSensors, MouseSensor, TouchSensor,
+  type DragEndEvent, type DragStartEvent,
+} from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { useAppStore } from '../../stores/appStore'
 import { formatDate } from '../../lib/utils'
 import type { Folder as FolderType, Note } from '../../db'
@@ -12,8 +19,9 @@ export function Sidebar() {
   const {
     notes, folders, activeNoteId, activeFolderId, searchQuery,
     theme, createNote, createFolder, deleteNote, deleteFolder,
-    updateFolder, setActiveNote, setActiveFolder, setSearch,
+    updateNote, updateFolder, setActiveNote, setActiveFolder, setSearch,
     toggleTheme, toggleStar, filteredNotes,
+    activeTag, setActiveTag, sortBy, sortOrder, setSortBy, setSortOrder,
   } = useAppStore()
 
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
@@ -21,15 +29,25 @@ export function Sidebar() {
   const [newFolderName, setNewFolderName] = useState('')
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [newFolderInput, setNewFolderInput] = useState('')
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [noteEditValue, setNoteEditValue] = useState('')
+  const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [contextMenu, setContextMenu] = useState<{
     type: 'note' | 'folder'
     id: string
     x: number
     y: number
   } | null>(null)
+  const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null)
 
-  const editInputRef = useRef<HTMLInputElement>(null)
-  const newFolderRef = useRef<HTMLInputElement>(null)
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+  )
+
+  const editInputRef = useRef<HTMLInputElement | null>(null)
+  const noteEditRef = useRef<HTMLInputElement | null>(null)
+  const newFolderRef = useRef<HTMLInputElement | null>(null)
   const displayed = filteredNotes()
 
   useEffect(() => {
@@ -37,11 +55,15 @@ export function Sidebar() {
   }, [editingFolderId])
 
   useEffect(() => {
+    if (editingNoteId && noteEditRef.current) noteEditRef.current.focus()
+  }, [editingNoteId])
+
+  useEffect(() => {
     if (creatingFolder && newFolderRef.current) newFolderRef.current.focus()
   }, [creatingFolder])
 
   useEffect(() => {
-    const close = () => setContextMenu(null)
+    const close = () => { setContextMenu(null); setSortMenuOpen(false) }
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
   }, [])
@@ -60,6 +82,11 @@ export function Sidebar() {
     setEditingFolderId(null)
   }
 
+  const handleRenameNote = async (id: string) => {
+    await updateNote(id, { title: noteEditValue.trim() || '无标题笔记' })
+    setEditingNoteId(null)
+  }
+
   const handleCreateFolder = async () => {
     if (!newFolderInput.trim()) { setCreatingFolder(false); return }
     await createFolder(newFolderInput.trim())
@@ -74,68 +101,27 @@ export function Sidebar() {
     await createNote(folderId)
   }
 
-  const rootFolders = folders.filter(f => f.parentId === null)
+  const handleDragStart = (event: DragStartEvent) => {
+    setDraggingNoteId(event.active.id as string)
+  }
 
-  return (
-    <aside
-      className="flex flex-col h-full shrink-0 border-r"
-      style={{
-        width: 260,
-        background: 'var(--bg-subtle)',
-        borderColor: 'var(--border)',
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-        <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>我的笔记</span>
-        <div className="flex items-center gap-1">
-          <button onClick={toggleTheme} className="toolbar-btn" title={theme === 'light' ? '暗色模式' : '亮色模式'}>
-            {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
-          </button>
-          <button onClick={handleNewNote} className="toolbar-btn" title="新建笔记">
-            <Plus size={15} />
-          </button>
-        </div>
-      </div>
+  const handleDragEnd = (event: DragEndEvent) => {
+    setDraggingNoteId(null)
+    if (event.over) {
+      updateNote(event.active.id as string, { folderId: event.over.id as string })
+    }
+  }
 
-      {/* Search */}
-      <div className="px-3 py-2">
-        <div
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5"
-          style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}
-        >
-          <Search size={13} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
-          <input
-            value={searchQuery}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="搜索笔记…"
-            className="bg-transparent outline-none text-sm w-full"
-            style={{ color: 'var(--text)' }}
-          />
-        </div>
-      </div>
+  const draggingNote = draggingNoteId ? notes.find(n => n.id === draggingNoteId) : null
 
-      {/* Nav shortcuts */}
-      <nav className="px-2 space-y-0.5">
-        <NavItem icon={<BookOpen size={14} />} label="使用指南" active={activeNoteId === '__welcome__'} onClick={() => setActiveNote('__welcome__')} />
-        <NavItem icon={<FileText size={14} />} label="所有笔记" count={notes.length} active={activeFolderId === 'all' && activeNoteId !== '__welcome__'} onClick={() => { setActiveFolder('all'); if (activeNoteId === '__welcome__') setActiveNote(null) }} />
-        <NavItem icon={<Star size={14} />} label="收藏" count={notes.filter(n => n.starred).length} active={activeFolderId === 'starred'} onClick={() => { setActiveFolder('starred'); if (activeNoteId === '__welcome__') setActiveNote(null) }} />
-      </nav>
-
-      {/* Folders section */}
-      <div className="px-3 pt-3 pb-1 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>文件夹</span>
-        <button onClick={() => setCreatingFolder(true)} className="toolbar-btn" title="新建文件夹">
-          <FolderPlus size={13} />
-        </button>
-      </div>
-
-      <div className="px-2 space-y-0.5">
-        {rootFolders.map(folder => (
-          <FolderItem
-            key={folder.id}
+  const renderFolder = (parentId: string | null, depth: number): React.ReactNode =>
+    folders
+      .filter(f => f.parentId === parentId)
+      .map(folder => (
+        <div key={folder.id}>
+          <DroppableFolderItem
             folder={folder}
-            depth={0}
+            depth={depth}
             expanded={expandedFolders.has(folder.id)}
             active={activeFolderId === folder.id}
             editing={editingFolderId === folder.id}
@@ -154,82 +140,218 @@ export function Sidebar() {
               if (e.key === 'Escape') setEditingFolderId(null)
             }}
           />
-        ))}
+          {expandedFolders.has(folder.id) && renderFolder(folder.id, depth + 1)}
+        </div>
+      ))
 
-        {creatingFolder && (
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
-            <Folder size={14} style={{ color: 'var(--accent)' }} />
+  const SORT_OPTIONS: { by: typeof sortBy; order: typeof sortOrder; label: string }[] = [
+    { by: 'updatedAt', order: 'desc', label: '最近修改' },
+    { by: 'createdAt', order: 'desc', label: '最近创建' },
+    { by: 'title', order: 'asc', label: '标题 A–Z' },
+    { by: 'title', order: 'desc', label: '标题 Z–A' },
+  ]
+  const currentSort = SORT_OPTIONS.find(o => o.by === sortBy && o.order === sortOrder)
+
+  return (
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <aside
+        className="flex flex-col h-full shrink-0 border-r"
+        style={{ width: 260, background: 'var(--bg-subtle)', borderColor: 'var(--border)' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+          <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>我的笔记</span>
+          <div className="flex items-center gap-1">
+            <button onClick={toggleTheme} className="toolbar-btn" title={theme === 'light' ? '暗色模式' : '亮色模式'}>
+              {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+            </button>
+            <button onClick={handleNewNote} className="toolbar-btn" title="新建笔记">
+              <Plus size={15} />
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="px-3 py-2">
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-1.5"
+            style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}
+          >
+            <Search size={13} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
             <input
-              ref={newFolderRef}
-              value={newFolderInput}
-              onChange={e => setNewFolderInput(e.target.value)}
-              onBlur={handleCreateFolder}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateFolder()
-                if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderInput('') }
-              }}
-              placeholder="文件夹名称"
-              className="bg-transparent outline-none text-sm flex-1"
+              value={searchQuery}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="搜索笔记…"
+              className="bg-transparent outline-none text-sm w-full"
               style={{ color: 'var(--text)' }}
             />
           </div>
-        )}
-      </div>
-
-      {/* Note list */}
-      <div className="flex-1 overflow-y-auto mt-2" style={{ borderTop: '1px solid var(--border)' }}>
-        <div className="px-3 py-2 flex items-center sticky top-0 z-10" style={{ background: 'var(--bg-subtle)' }}>
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
-            笔记{displayed.length > 0 ? ` (${displayed.length})` : ''}
-          </span>
         </div>
-        <div className="px-2 pb-3 space-y-0.5">
-          {displayed.length === 0 && (
-            <div className="text-center py-8" style={{ color: 'var(--text-faint)' }}>
-              <FileText size={24} className="mx-auto mb-2 opacity-40" />
-              <p className="text-xs">暂无笔记</p>
+
+        {/* Nav shortcuts */}
+        <nav className="px-2 space-y-0.5">
+          <NavItem icon={<BookOpen size={14} />} label="使用指南" active={activeNoteId === '__welcome__'} onClick={() => setActiveNote('__welcome__')} />
+          <NavItem icon={<FileText size={14} />} label="所有笔记" count={notes.length} active={activeFolderId === 'all' && activeNoteId !== '__welcome__'} onClick={() => { setActiveFolder('all'); if (activeNoteId === '__welcome__') setActiveNote(null) }} />
+          <NavItem icon={<Star size={14} />} label="收藏" count={notes.filter(n => n.starred).length} active={activeFolderId === 'starred'} onClick={() => { setActiveFolder('starred'); if (activeNoteId === '__welcome__') setActiveNote(null) }} />
+        </nav>
+
+        {/* Folders section */}
+        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>文件夹</span>
+          <button onClick={() => setCreatingFolder(true)} className="toolbar-btn" title="新建文件夹">
+            <FolderPlus size={13} />
+          </button>
+        </div>
+
+        <div className="px-2 space-y-0.5">
+          {renderFolder(null, 0)}
+
+          {creatingFolder && (
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
+              <Folder size={14} style={{ color: 'var(--accent)' }} />
+              <input
+                ref={newFolderRef}
+                value={newFolderInput}
+                onChange={e => setNewFolderInput(e.target.value)}
+                onBlur={handleCreateFolder}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateFolder()
+                  if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderInput('') }
+                }}
+                placeholder="文件夹名称"
+                className="bg-transparent outline-none text-sm flex-1"
+                style={{ color: 'var(--text)' }}
+              />
             </div>
           )}
-          {displayed.map(note => (
-            <NoteItem
-              key={note.id}
-              note={note}
-              active={activeNoteId === note.id}
-              onClick={() => setActiveNote(note.id)}
-              onDelete={() => deleteNote(note.id)}
-              onToggleStar={() => toggleStar(note.id)}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                setContextMenu({ type: 'note', id: note.id, x: e.clientX, y: e.clientY })
-              }}
-            />
-          ))}
         </div>
-      </div>
 
-      {/* Context menu */}
-      {contextMenu && (
-        <div
-          className="fixed z-50 rounded-lg py-1 shadow-xl"
-          style={{ top: contextMenu.y, left: contextMenu.x, background: 'var(--bg)', border: '1px solid var(--border)', minWidth: 160 }}
-          onClick={e => e.stopPropagation()}
-        >
-          {contextMenu.type === 'folder' && (
-            <>
-              <CtxItem icon={<Edit2 size={13} />} label="重命名" onClick={() => {
-                const f = folders.find(f => f.id === contextMenu.id)
-                if (f) { setNewFolderName(f.name); setEditingFolderId(contextMenu.id) }
-                setContextMenu(null)
-              }} />
-              <CtxItem icon={<Trash2 size={13} />} label="删除文件夹" danger onClick={async () => { await deleteFolder(contextMenu.id); setContextMenu(null) }} />
-            </>
-          )}
-          {contextMenu.type === 'note' && (
-            <CtxItem icon={<Trash2 size={13} />} label="删除笔记" danger onClick={async () => { await deleteNote(contextMenu.id); setContextMenu(null) }} />
-          )}
+        {/* Note list */}
+        <div className="flex-1 overflow-y-auto mt-2" style={{ borderTop: '1px solid var(--border)' }}>
+          <div className="px-3 py-2 flex items-center justify-between sticky top-0 z-10" style={{ background: 'var(--bg-subtle)' }}>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
+                笔记{displayed.length > 0 ? ` (${displayed.length})` : ''}
+              </span>
+              {activeTag && (
+                <span
+                  className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full cursor-pointer"
+                  style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                  onClick={() => setActiveTag(null)}
+                >
+                  <Hash size={9} />{activeTag}<X size={9} />
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                className="toolbar-btn"
+                title={`排序：${currentSort?.label ?? ''}`}
+                onClick={e => { e.stopPropagation(); setSortMenuOpen(v => !v) }}
+              >
+                <ArrowUpDown size={13} />
+              </button>
+              {sortMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 rounded-lg py-1 z-50 shadow-xl"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', minWidth: 140 }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {SORT_OPTIONS.map(opt => (
+                    <button
+                      key={opt.label}
+                      onClick={() => { setSortBy(opt.by); setSortOrder(opt.order); setSortMenuOpen(false) }}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-sm text-left"
+                      style={{ color: opt.by === sortBy && opt.order === sortOrder ? 'var(--accent)' : 'var(--text)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-muted)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      {opt.label}
+                      {opt.by === sortBy && opt.order === sortOrder && <Check size={12} />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="px-2 pb-3 space-y-0.5">
+            {displayed.length === 0 && (
+              <div className="text-center py-8" style={{ color: 'var(--text-faint)' }}>
+                <FileText size={24} className="mx-auto mb-2 opacity-40" />
+                <p className="text-xs">暂无笔记</p>
+              </div>
+            )}
+            {displayed.map(note => (
+              <DraggableNoteItem
+                key={note.id}
+                note={note}
+                active={activeNoteId === note.id}
+                editing={editingNoteId === note.id}
+                editValue={noteEditValue}
+                editRef={noteEditRef}
+                activeTag={activeTag}
+                onEditChange={setNoteEditValue}
+                onEditBlur={() => handleRenameNote(note.id)}
+                onEditKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRenameNote(note.id)
+                  if (e.key === 'Escape') setEditingNoteId(null)
+                }}
+                onClick={() => setActiveNote(note.id)}
+                onDelete={() => deleteNote(note.id)}
+                onToggleStar={() => toggleStar(note.id)}
+                onTagClick={(tag) => setActiveTag(activeTag === tag ? null : tag)}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setContextMenu({ type: 'note', id: note.id, x: e.clientX, y: e.clientY })
+                }}
+              />
+            ))}
+          </div>
         </div>
-      )}
-    </aside>
+
+        {/* Context menu */}
+        {contextMenu && (
+          <div
+            className="fixed z-50 rounded-lg py-1 shadow-xl"
+            style={{ top: contextMenu.y, left: contextMenu.x, background: 'var(--bg)', border: '1px solid var(--border)', minWidth: 160 }}
+            onClick={e => e.stopPropagation()}
+          >
+            {contextMenu.type === 'folder' && (
+              <>
+                <CtxItem icon={<Edit2 size={13} />} label="重命名" onClick={() => {
+                  const f = folders.find(f => f.id === contextMenu.id)
+                  if (f) { setNewFolderName(f.name); setEditingFolderId(contextMenu.id) }
+                  setContextMenu(null)
+                }} />
+                <CtxItem icon={<Trash2 size={13} />} label="删除文件夹" danger onClick={async () => { await deleteFolder(contextMenu.id); setContextMenu(null) }} />
+              </>
+            )}
+            {contextMenu.type === 'note' && (
+              <>
+                <CtxItem icon={<Edit2 size={13} />} label="重命名" onClick={() => {
+                  const n = notes.find(n => n.id === contextMenu.id)
+                  if (n) { setNoteEditValue(n.title); setEditingNoteId(contextMenu.id) }
+                  setContextMenu(null)
+                }} />
+                <CtxItem icon={<Trash2 size={13} />} label="删除笔记" danger onClick={async () => { await deleteNote(contextMenu.id); setContextMenu(null) }} />
+              </>
+            )}
+          </div>
+        )}
+      </aside>
+
+      {/* Drag overlay */}
+      <DragOverlay>
+        {draggingNote && (
+          <div
+            className="px-2 py-2 rounded-lg text-sm font-medium opacity-90 shadow-lg"
+            style={{ background: 'var(--bg)', border: '1px solid var(--accent)', color: 'var(--text)', width: 220 }}
+          >
+            {draggingNote.title || '无标题笔记'}
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
   )
 }
 
@@ -246,16 +368,25 @@ function NavItem({ icon, label, count, active, onClick }: { icon: React.ReactNod
   )
 }
 
-function FolderItem({ folder, depth, expanded, active, editing, editValue, editRef, onToggle, onClick, onContextMenu, onEditChange, onEditBlur, onEditKeyDown }: {
+function DroppableFolderItem({ folder, depth, expanded, active, editing, editValue, editRef, onToggle, onClick, onContextMenu, onEditChange, onEditBlur, onEditKeyDown }: {
   folder: FolderType; depth: number; expanded: boolean; active: boolean; editing: boolean
   editValue: string; editRef: React.RefObject<HTMLInputElement | null>
   onToggle: () => void; onClick: () => void; onContextMenu: (e: React.MouseEvent) => void
   onEditChange: (v: string) => void; onEditBlur: () => void; onEditKeyDown: (e: React.KeyboardEvent) => void
 }) {
+  const { isOver, setNodeRef } = useDroppable({ id: folder.id })
+
   return (
     <div
+      ref={setNodeRef}
       className="flex items-center gap-1.5 py-1.5 rounded-lg cursor-pointer text-sm"
-      style={{ paddingLeft: 8 + depth * 16, background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-muted)' }}
+      style={{
+        paddingLeft: 8 + depth * 16,
+        background: isOver ? 'var(--accent-subtle)' : active ? 'var(--accent-subtle)' : 'transparent',
+        color: active || isOver ? 'var(--accent)' : 'var(--text-muted)',
+        outline: isOver ? '2px solid var(--accent)' : 'none',
+        outlineOffset: -2,
+      }}
       onClick={onClick}
       onContextMenu={onContextMenu}
     >
@@ -286,34 +417,66 @@ function CtxItem({ icon, label, danger, onClick }: { icon: React.ReactNode; labe
   )
 }
 
-function NoteItem({ note, active, onClick, onDelete, onToggleStar, onContextMenu }: {
+function DraggableNoteItem({ note, active, editing, editValue, editRef, activeTag, onEditChange, onEditBlur, onEditKeyDown, onClick, onDelete, onToggleStar, onTagClick, onContextMenu }: {
   note: Note
   active: boolean
+  editing: boolean
+  editValue: string
+  editRef: React.RefObject<HTMLInputElement | null>
+  activeTag: string | null
+  onEditChange: (v: string) => void
+  onEditBlur: () => void
+  onEditKeyDown: (e: React.KeyboardEvent) => void
   onClick: () => void
   onDelete: () => void
   onToggleStar: () => void
+  onTagClick: (tag: string) => void
   onContextMenu: (e: React.MouseEvent) => void
 }) {
   const [hovered, setHovered] = useState(false)
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: note.id })
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.4 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
+  }
 
   return (
     <div
-      className="px-2 py-2 rounded-lg cursor-pointer relative"
+      ref={setNodeRef}
       style={{
+        ...style,
         background: active ? 'var(--accent-subtle)' : hovered ? 'var(--bg-muted)' : 'transparent',
         borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
       }}
+      className="px-2 py-2 rounded-lg relative"
       onClick={onClick}
       onContextMenu={onContextMenu}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      {...attributes}
+      {...listeners}
     >
       <div className="flex items-start justify-between gap-1">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           {note.starred && <Star size={11} style={{ color: '#f59e0b', flexShrink: 0 }} fill="currentColor" />}
-          <span className="text-sm font-medium truncate" style={{ color: active ? 'var(--accent)' : 'var(--text)' }}>
-            {note.title || '无标题笔记'}
-          </span>
+          {editing ? (
+            <input
+              ref={editRef}
+              value={editValue}
+              onChange={e => onEditChange(e.target.value)}
+              onBlur={onEditBlur}
+              onKeyDown={onEditKeyDown}
+              className="bg-transparent outline-none text-sm font-medium flex-1 min-w-0"
+              style={{ color: 'var(--text)' }}
+              onClick={e => e.stopPropagation()}
+            />
+          ) : (
+            <span className="text-sm font-medium truncate" style={{ color: active ? 'var(--accent)' : 'var(--text)' }}>
+              {note.title || '无标题笔记'}
+            </span>
+          )}
         </div>
         {hovered ? (
           <div className="flex items-center gap-0.5 shrink-0">
@@ -345,8 +508,15 @@ function NoteItem({ note, active, onClick, onDelete, onToggleStar, onContextMenu
       {note.tags.length > 0 && (
         <div className="flex gap-1 mt-1 flex-wrap">
           {note.tags.slice(0, 3).map(tag => (
-            <span key={tag} className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full"
-              style={{ background: 'var(--bg-muted)', color: 'var(--text-muted)' }}>
+            <span
+              key={tag}
+              className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full cursor-pointer transition-colors"
+              style={{
+                background: activeTag === tag ? 'var(--accent-subtle)' : 'var(--bg-muted)',
+                color: activeTag === tag ? 'var(--accent)' : 'var(--text-muted)',
+              }}
+              onClick={e => { e.stopPropagation(); onTagClick(tag) }}
+            >
               <Hash size={9} />{tag}
             </span>
           ))}

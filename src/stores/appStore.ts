@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { db, type Note, type Folder } from '../db'
-import { generateId } from '../lib/utils'
+import { generateId, extractTextFromJSON } from '../lib/utils'
 
 interface AppState {
   notes: Note[]
@@ -10,11 +10,14 @@ interface AppState {
   searchQuery: string
   theme: 'light' | 'dark'
   focusMode: boolean
+  activeTag: string | null
+  sortBy: 'updatedAt' | 'createdAt' | 'title'
+  sortOrder: 'asc' | 'desc'
 
   // actions
   loadAll: () => Promise<void>
   createNote: (folderId?: string | null) => Promise<string>
-  updateNote: (id: string, patch: Partial<Note>) => Promise<void>
+  updateNote: (id: string, patch: Partial<Note>, opts?: { silent?: boolean }) => Promise<void>
   deleteNote: (id: string) => Promise<void>
   toggleStar: (id: string) => Promise<void>
 
@@ -27,6 +30,9 @@ interface AppState {
   setSearch: (q: string) => void
   toggleTheme: () => void
   toggleFocusMode: () => void
+  setActiveTag: (tag: string | null) => void
+  setSortBy: (by: 'updatedAt' | 'createdAt' | 'title') => void
+  setSortOrder: (order: 'asc' | 'desc') => void
 
   filteredNotes: () => Note[]
 }
@@ -39,6 +45,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchQuery: '',
   theme: (localStorage.getItem('theme') as 'light' | 'dark') || 'light',
   focusMode: false,
+  activeTag: null,
+  sortBy: 'updatedAt',
+  sortOrder: 'desc',
 
   loadAll: async () => {
     const [notes, folders] = await Promise.all([
@@ -72,12 +81,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     return id
   },
 
-  updateNote: async (id, patch) => {
+  updateNote: async (id, patch, opts) => {
+    const silent = opts?.silent ?? false
     const now = Date.now()
-    await db.notes.update(id, { ...patch, updatedAt: now })
+    const dbPatch = silent ? patch : { ...patch, updatedAt: now }
+    await db.notes.update(id, dbPatch)
     set(s => ({
       notes: s.notes.map(n =>
-        n.id === id ? { ...n, ...patch, updatedAt: now } : n
+        n.id === id ? { ...n, ...dbPatch } : n
       ).sort((a, b) => b.updatedAt - a.updatedAt),
     }))
   },
@@ -94,7 +105,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleStar: async (id) => {
     const note = get().notes.find(n => n.id === id)
     if (!note) return
-    await get().updateNote(id, { starred: !note.starred })
+    await get().updateNote(id, { starred: !note.starred }, { silent: true })
   },
 
   createFolder: async (name, parentId = null) => {
@@ -132,9 +143,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleFocusMode: () => set(s => ({ focusMode: !s.focusMode })),
+  setActiveTag: (tag) => set({ activeTag: tag }),
+  setSortBy: (by) => set({ sortBy: by }),
+  setSortOrder: (order) => set({ sortOrder: order }),
 
   filteredNotes: () => {
-    const { notes, activeFolderId, searchQuery } = get()
+    const { notes, activeFolderId, searchQuery, activeTag, sortBy, sortOrder } = get()
     let result = notes
 
     if (activeFolderId === 'starred') {
@@ -143,13 +157,28 @@ export const useAppStore = create<AppState>((set, get) => ({
       result = result.filter(n => n.folderId === activeFolderId)
     }
 
+    if (activeTag) {
+      result = result.filter(n => n.tags.includes(activeTag))
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       result = result.filter(n =>
         n.title.toLowerCase().includes(q) ||
-        n.tags.some(t => t.toLowerCase().includes(q))
+        n.tags.some(t => t.toLowerCase().includes(q)) ||
+        extractTextFromJSON(n.content).toLowerCase().includes(q)
       )
     }
+
+    result = [...result].sort((a, b) => {
+      let cmp = 0
+      if (sortBy === 'title') {
+        cmp = a.title.localeCompare(b.title, 'zh-CN')
+      } else {
+        cmp = a[sortBy] - b[sortBy]
+      }
+      return sortOrder === 'asc' ? cmp : -cmp
+    })
 
     return result
   },

@@ -74,14 +74,14 @@ const FEATURES = [
 ]
 
 const SHORTCUTS = [
-  { keys: ['⌘', 'B'], desc: '粗体' },
-  { keys: ['⌘', 'I'], desc: '斜体' },
-  { keys: ['⌘', 'U'], desc: '下划线' },
-  { keys: ['⌘', 'E'], desc: '行内代码' },
-  { keys: ['⌘', 'Z'], desc: '撤销' },
-  { keys: ['⌘', '⇧', 'Z'], desc: '重做' },
-  { keys: ['/'], desc: '命令菜单' },
-  { keys: ['Esc'], desc: '退出专注模式' },
+  { desc: '粗体',         mac: ['⌘', 'B'],       win: ['Ctrl', 'B'] },
+  { desc: '斜体',         mac: ['⌘', 'I'],       win: ['Ctrl', 'I'] },
+  { desc: '下划线',       mac: ['⌘', 'U'],       win: ['Ctrl', 'U'] },
+  { desc: '行内代码',     mac: ['⌘', 'E'],       win: ['Ctrl', 'E'] },
+  { desc: '撤销',         mac: ['⌘', 'Z'],       win: ['Ctrl', 'Z'] },
+  { desc: '重做',         mac: ['⌘', '⇧', 'Z'],  win: ['Ctrl', 'Y'] },
+  { desc: '命令菜单',     mac: ['/'],             win: ['/'] },
+  { desc: '退出专注模式', mac: ['Esc'],           win: ['Esc'] },
 ]
 
 export function WelcomeView() {
@@ -164,22 +164,53 @@ export function WelcomeView() {
         >
           常用快捷键
         </h2>
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{ border: '1px solid var(--border)' }}
-        >
+        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+          {/* Header */}
+          <div
+            className="grid px-5 py-2 text-xs font-semibold uppercase tracking-wider"
+            style={{
+              gridTemplateColumns: '1fr auto auto',
+              gap: '2rem',
+              background: 'var(--bg-muted)',
+              color: 'var(--text-faint)',
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            <span>操作</span>
+            <span>macOS</span>
+            <span>Windows</span>
+          </div>
           {SHORTCUTS.map((s, i) => (
             <div
               key={s.desc}
-              className="flex items-center justify-between px-5 py-3"
+              className="grid items-center px-5 py-3"
               style={{
+                gridTemplateColumns: '1fr auto auto',
+                gap: '2rem',
                 borderTop: i > 0 ? '1px solid var(--border)' : 'none',
                 background: 'var(--bg-subtle)',
               }}
             >
               <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{s.desc}</span>
-              <div className="flex items-center gap-1">
-                {s.keys.map(k => (
+              <div className="flex items-center gap-1 justify-end">
+                {s.mac.map(k => (
+                  <kbd
+                    key={k}
+                    className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-mono"
+                    style={{
+                      background: 'var(--bg)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text)',
+                      minWidth: 28,
+                      boxShadow: '0 1px 0 var(--border)',
+                    }}
+                  >
+                    {k}
+                  </kbd>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 justify-end">
+                {s.win.map(k => (
                   <kbd
                     key={k}
                     className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-mono"

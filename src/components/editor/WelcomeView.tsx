@@ -1,6 +1,7 @@
 import {
   FileText, Folder, Slash, MousePointer, Save,
-  Search, Moon, Plus, Hash,
+  Search, Moon, Plus, Hash, Star, Image, Code2,
+  BookOpen, Maximize2,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 
@@ -9,6 +10,16 @@ const FEATURES = [
     icon: <FileText size={18} />,
     title: '富文本编辑',
     desc: '标题、列表、引用、代码块、表格、任务清单，应有尽有',
+  },
+  {
+    icon: <Code2 size={18} />,
+    title: '语法高亮',
+    desc: '代码块自动识别语言并高亮，支持 JS、TS、Python、Go 等数十种语言',
+  },
+  {
+    icon: <Image size={18} />,
+    title: '图片插入',
+    desc: '斜杠命令输入 URL，或直接拖拽 / 粘贴截图到编辑器',
   },
   {
     icon: <Slash size={18} />,
@@ -26,9 +37,24 @@ const FEATURES = [
     desc: '停止输入 1 秒后自动写入本地 IndexedDB，无需手动保存',
   },
   {
+    icon: <BookOpen size={18} />,
+    title: '字数 & 阅读时长',
+    desc: '底部实时显示字数，并估算当前笔记的阅读时长',
+  },
+  {
+    icon: <Maximize2 size={18} />,
+    title: '专注模式',
+    desc: '点击标题栏图标收起侧边栏，全屏沉浸写作，按 Esc 退出',
+  },
+  {
     icon: <Folder size={18} />,
     title: '文件夹管理',
-    desc: '创建多级文件夹，右键可重命名或删除，拖拽随意整理',
+    desc: '创建多级文件夹，右键可重命名或删除，笔记可分类归档',
+  },
+  {
+    icon: <Star size={18} />,
+    title: '收藏',
+    desc: '点击标题旁星标或笔记列表 hover 按钮，快速收藏重要笔记',
   },
   {
     icon: <Search size={18} />,
@@ -51,8 +77,11 @@ const SHORTCUTS = [
   { keys: ['⌘', 'B'], desc: '粗体' },
   { keys: ['⌘', 'I'], desc: '斜体' },
   { keys: ['⌘', 'U'], desc: '下划线' },
+  { keys: ['⌘', 'E'], desc: '行内代码' },
   { keys: ['⌘', 'Z'], desc: '撤销' },
+  { keys: ['⌘', '⇧', 'Z'], desc: '重做' },
   { keys: ['/'], desc: '命令菜单' },
+  { keys: ['Esc'], desc: '退出专注模式' },
 ]
 
 export function WelcomeView() {

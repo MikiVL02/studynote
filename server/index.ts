@@ -10,7 +10,7 @@ const app = new Hono()
 app.use('*', cors())
 
 // ── Model config persistence ──────────────────────────────────────────────────
-const MODELS_FILE = path.resolve('models.json')
+const MODELS_FILE = process.env.MODELS_FILE ?? path.resolve('models.json')
 
 type ModelConfig = {
   id: string

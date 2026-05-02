@@ -169,7 +169,7 @@ function nodesToDocxParagraphs(nodes: TipTapNode[]): Paragraph[] {
         })
       case 'codeBlock': {
         const code = (node.content ?? []).map((n: TipTapNode) => n.text ?? '').join('')
-        return code.split('\n').map(line => new Paragraph({
+        return code.split('\n').map((line: string) => new Paragraph({
           children: [new TextRun({ text: line, font: 'Courier New' })],
         }))
       }

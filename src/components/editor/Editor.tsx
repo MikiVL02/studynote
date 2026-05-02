@@ -8,7 +8,6 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { Table } from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
-import { WelcomeView } from './WelcomeView'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import CharacterCount from '@tiptap/extension-character-count'
@@ -16,14 +15,20 @@ import Typography from '@tiptap/extension-typography'
 import Link from '@tiptap/extension-link'
 import Highlight from '@tiptap/extension-highlight'
 import { TextStyle } from '@tiptap/extension-text-style'
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
+import { Image } from '@tiptap/extension-image'
+import { createLowlight, common } from 'lowlight'
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code,
   Highlighter, List, ListOrdered, Quote,
   Heading1, Heading2, Heading3, Minus, CheckSquare, Table as TableIcon,
-  Type, Star,
+  Type, Star, ImageIcon, Maximize2, Minimize2,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { countWords } from '../../lib/utils'
+import { WelcomeView } from './WelcomeView'
+
+const lowlight = createLowlight(common)
 
 // Slash command items
 const SLASH_ITEMS = [
@@ -35,7 +40,11 @@ const SLASH_ITEMS = [
   { label: '有序列表', desc: '1. 项目', icon: <ListOrdered size={14} />, action: (e: ReturnType<typeof useEditor>) => e?.chain().focus().toggleOrderedList().run() },
   { label: '任务列表', desc: '☑ 待办', icon: <CheckSquare size={14} />, action: (e: ReturnType<typeof useEditor>) => e?.chain().focus().toggleTaskList().run() },
   { label: '引用', desc: '引用文本', icon: <Quote size={14} />, action: (e: ReturnType<typeof useEditor>) => e?.chain().focus().toggleBlockquote().run() },
-  { label: '代码块', desc: '多行代码', icon: <Code size={14} />, action: (e: ReturnType<typeof useEditor>) => e?.chain().focus().toggleCodeBlock().run() },
+  { label: '代码块', desc: '含语法高亮', icon: <Code size={14} />, action: (e: ReturnType<typeof useEditor>) => e?.chain().focus().toggleCodeBlock().run() },
+  { label: '图片', desc: '插入图片 URL', icon: <ImageIcon size={14} />, action: (e: ReturnType<typeof useEditor>) => {
+    const url = window.prompt('图片地址（URL）')
+    if (url) e?.chain().focus().setImage({ src: url }).run()
+  }},
   { label: '分割线', desc: '水平线', icon: <Minus size={14} />, action: (e: ReturnType<typeof useEditor>) => e?.chain().focus().setHorizontalRule().run() },
   { label: '表格', desc: '插入表格', icon: <TableIcon size={14} />, action: (e: ReturnType<typeof useEditor>) => e?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
 ]
@@ -67,7 +76,7 @@ function SlashMenu({ items, selectedIndex, onSelect }: {
 }
 
 export function Editor() {
-  const { activeNoteId, notes, updateNote, toggleStar } = useAppStore()
+  const { activeNoteId, notes, updateNote, toggleStar, focusMode, toggleFocusMode } = useAppStore()
   const activeNote = notes.find(n => n.id === activeNoteId)
 
   const [title, setTitle] = useState(activeNote?.title ?? '')
@@ -88,6 +97,15 @@ export function Editor() {
     item.label.toLowerCase().includes(slashQuery.toLowerCase())
   )
 
+  // Exit focus mode with Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && focusMode) toggleFocusMode()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [focusMode, toggleFocusMode])
+
   const scheduleNoteSave = useCallback((content: string, wc: number) => {
     if (!activeNoteId || isLoadingRef.current) return
     setSaveStatus('unsaved')
@@ -101,7 +119,7 @@ export function Editor() {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ codeBlock: false }),
       Placeholder.configure({ placeholder: '开始写作，或输入 / 呼出命令菜单…' }),
       Underline,
       TaskList,
@@ -116,6 +134,8 @@ export function Editor() {
       TextStyle,
       Link.configure({ openOnClick: false }),
       BubbleMenu.configure({ pluginKey: 'bubbleMenu' }),
+      CodeBlockLowlight.configure({ lowlight }),
+      Image.configure({ allowBase64: true }),
     ],
     content: activeNote?.content ? JSON.parse(activeNote.content) : '',
     onUpdate({ editor: ed }) {
@@ -145,6 +165,43 @@ export function Editor() {
           }
           if (event.key === 'Escape') {
             setSlashOpen(false)
+            return true
+          }
+        }
+        return false
+      },
+      // Support drag-and-drop image files
+      handleDrop(_view, event) {
+        const files = event.dataTransfer?.files
+        if (!files?.length) return false
+        const file = files[0]
+        if (!file.type.startsWith('image/')) return false
+        event.preventDefault()
+        const reader = new FileReader()
+        reader.onload = () => {
+          if (editor && typeof reader.result === 'string') {
+            editor.chain().focus().setImage({ src: reader.result }).run()
+          }
+        }
+        reader.readAsDataURL(file)
+        return true
+      },
+      // Support paste image
+      handlePaste(_view, event) {
+        const items = event.clipboardData?.items
+        if (!items) return false
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile()
+            if (!file) continue
+            event.preventDefault()
+            const reader = new FileReader()
+            reader.onload = () => {
+              if (editor && typeof reader.result === 'string') {
+                editor.chain().focus().setImage({ src: reader.result }).run()
+              }
+            }
+            reader.readAsDataURL(file)
             return true
           }
         }
@@ -224,11 +281,13 @@ export function Editor() {
     return <WelcomeView />
   }
 
+  const readingTime = Math.max(1, Math.ceil(wordCount / 250))
+
   return (
     <div className="flex-1 flex flex-col min-w-0 h-full" style={{ background: 'var(--bg)' }}>
-      {/* Title */}
+      {/* Title row */}
       <div className="px-12 pt-10 pb-0 max-w-3xl mx-auto w-full">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2">
           <input
             value={title}
             onChange={e => handleTitleChange(e.target.value)}
@@ -240,7 +299,6 @@ export function Editor() {
             onClick={() => activeNoteId && toggleStar(activeNoteId)}
             title={activeNote.starred ? '取消收藏' : '收藏'}
             className="toolbar-btn shrink-0 mt-2"
-            style={{ width: 28, height: 28 }}
           >
             <Star
               size={16}
@@ -248,19 +306,21 @@ export function Editor() {
               style={{ color: activeNote.starred ? '#f59e0b' : 'var(--text-faint)' }}
             />
           </button>
+          <button
+            onClick={toggleFocusMode}
+            title={focusMode ? '退出专注模式 (Esc)' : '专注模式'}
+            className="toolbar-btn shrink-0 mt-2"
+          >
+            {focusMode
+              ? <Minimize2 size={15} style={{ color: 'var(--accent)' }} />
+              : <Maximize2 size={15} style={{ color: 'var(--text-faint)' }} />}
+          </button>
         </div>
       </div>
 
-      {/* Floating bubble menu rendered via portal */}
+      {/* Floating toolbar */}
       {editor && (
-        <div
-          id="bubble-menu-portal"
-          style={{
-            position: 'fixed',
-            zIndex: 100,
-            pointerEvents: 'none',
-          }}
-        >
+        <div style={{ position: 'fixed', zIndex: 100, pointerEvents: 'none' }}>
           <FloatingToolbar editor={editor} />
         </div>
       )}
@@ -271,15 +331,8 @@ export function Editor() {
           <EditorContent editor={editor} />
 
           {slashOpen && filteredSlash.length > 0 && (
-            <div
-              className="absolute z-50"
-              style={{ top: slashPos.top, left: Math.max(0, slashPos.left) }}
-            >
-              <SlashMenu
-                items={filteredSlash}
-                selectedIndex={slashIndex}
-                onSelect={executeSlash}
-              />
+            <div className="absolute z-50" style={{ top: slashPos.top, left: Math.max(0, slashPos.left) }}>
+              <SlashMenu items={filteredSlash} selectedIndex={slashIndex} onSelect={executeSlash} />
             </div>
           )}
         </div>
@@ -288,13 +341,9 @@ export function Editor() {
       {/* Footer */}
       <div
         className="flex items-center justify-between px-12 py-2 text-xs shrink-0"
-        style={{
-          borderTop: '1px solid var(--border)',
-          color: 'var(--text-faint)',
-          background: 'var(--bg)',
-        }}
+        style={{ borderTop: '1px solid var(--border)', color: 'var(--text-faint)', background: 'var(--bg)' }}
       >
-        <span>{wordCount} 字</span>
+        <span>{wordCount} 字 · 约 {readingTime} 分钟阅读</span>
         <span style={{ color: saveStatus === 'saved' ? 'var(--text-faint)' : 'var(--accent)' }}>
           {saveStatus === 'saving' ? '保存中…' : saveStatus === 'unsaved' ? '未保存' : '已自动保存'}
         </span>
@@ -316,24 +365,19 @@ function FloatingToolbar({ editor }: { editor: NonNullable<ReturnType<typeof use
       const start = view.coordsAtPos(from)
       const end = view.coordsAtPos(to)
       const top = Math.min(start.top, end.top) - 48
-      const left = (start.left + end.left) / 2 - 100
+      const left = (start.left + end.left) / 2 - 110
       setPos({ top: Math.max(8, top), left: Math.max(8, left) })
       setVisible(true)
     }
     editor.on('selectionUpdate', update)
     editor.on('blur', () => setVisible(false))
-    return () => {
-      editor.off('selectionUpdate', update)
-    }
+    return () => { editor.off('selectionUpdate', update) }
   }, [editor])
 
   if (!visible) return null
 
   return (
-    <div
-      className="floating-toolbar"
-      style={{ position: 'fixed', top: pos.top, left: pos.left, pointerEvents: 'auto', zIndex: 100 }}
-    >
+    <div className="floating-toolbar" style={{ position: 'fixed', top: pos.top, left: pos.left, pointerEvents: 'auto', zIndex: 100 }}>
       <ToolbarBtn title="粗体" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={13} /></ToolbarBtn>
       <ToolbarBtn title="斜体" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={13} /></ToolbarBtn>
       <ToolbarBtn title="下划线" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}><UnderlineIcon size={13} /></ToolbarBtn>
@@ -350,17 +394,10 @@ function FloatingToolbar({ editor }: { editor: NonNullable<ReturnType<typeof use
 }
 
 function ToolbarBtn({ children, active, title, onClick }: {
-  children: React.ReactNode
-  active: boolean
-  title?: string
-  onClick: () => void
+  children: React.ReactNode; active: boolean; title?: string; onClick: () => void
 }) {
   return (
-    <button
-      title={title}
-      onMouseDown={(e) => { e.preventDefault(); onClick() }}
-      className={`toolbar-btn ${active ? 'active' : ''}`}
-    >
+    <button title={title} onMouseDown={(e) => { e.preventDefault(); onClick() }} className={`toolbar-btn ${active ? 'active' : ''}`}>
       {children}
     </button>
   )

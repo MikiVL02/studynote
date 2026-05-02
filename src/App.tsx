@@ -5,7 +5,7 @@ import { useAppStore } from './stores/appStore'
 import { seedIfEmpty, deduplicateDB } from './db'
 
 export default function App() {
-  const { loadAll, theme } = useAppStore()
+  const { loadAll, theme, focusMode } = useAppStore()
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -19,7 +19,9 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden" style={{ background: 'var(--bg)' }}>
-      <Sidebar />
+      <div className={`sidebar-panel${focusMode ? ' hidden' : ''}`} style={{ width: 260 }}>
+        <Sidebar />
+      </div>
       <Editor />
     </div>
   )

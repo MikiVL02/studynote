@@ -9,6 +9,7 @@ interface AppState {
   activeFolderId: string | null | 'all' | 'starred'
   searchQuery: string
   theme: 'light' | 'dark'
+  focusMode: boolean
 
   // actions
   loadAll: () => Promise<void>
@@ -25,6 +26,7 @@ interface AppState {
   setActiveFolder: (id: string | null | 'all' | 'starred') => void
   setSearch: (q: string) => void
   toggleTheme: () => void
+  toggleFocusMode: () => void
 
   filteredNotes: () => Note[]
 }
@@ -36,6 +38,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeFolderId: 'all',
   searchQuery: '',
   theme: (localStorage.getItem('theme') as 'light' | 'dark') || 'light',
+  focusMode: false,
 
   loadAll: async () => {
     const [notes, folders] = await Promise.all([
@@ -127,6 +130,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     document.documentElement.setAttribute('data-theme', next)
     set({ theme: next })
   },
+
+  toggleFocusMode: () => set(s => ({ focusMode: !s.focusMode })),
 
   filteredNotes: () => {
     const { notes, activeFolderId, searchQuery } = get()

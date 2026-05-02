@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
 import StarterKit from '@tiptap/starter-kit'
@@ -23,7 +24,7 @@ import {
   Highlighter, List, ListOrdered, Quote,
   Heading1, Heading2, Heading3, Minus, CheckSquare, Table as TableIcon,
   Type, Star, ImageIcon, Maximize2, Minimize2, Hash, X,
-  Sparkles, Zap, Wand2, FileText as FileTextIcon, Square,
+  Sparkles, Zap, Wand2, FileText as FileTextIcon, Square, Languages,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { countWords } from '../../lib/utils'
@@ -92,7 +93,7 @@ export function Editor() {
 
   // AI modal state
   const [aiModal, setAiModal] = useState<{
-    type: 'polish' | 'summarize'
+    type: 'polish' | 'summarize' | 'translate'
     from: number
     to: number
     selection: string
@@ -316,7 +317,7 @@ export function Editor() {
     }
   }
 
-  const handleAiAction = async (type: 'polish' | 'summarize', from: number, to: number) => {
+  const handleAiAction = async (type: 'polish' | 'summarize' | 'translate', from: number, to: number) => {
     if (!editor || !activeNote) return
     const selection = editor.state.doc.textBetween(from, to, '\n')
     const controller = new AbortController()
@@ -440,7 +441,7 @@ export function Editor() {
       {/* Floating toolbar */}
       {editor && (
         <div style={{ position: 'fixed', zIndex: 100, pointerEvents: 'none' }}>
-          <FloatingToolbar editor={editor} onPolish={handleAiAction.bind(null, 'polish')} onSummarize={handleAiAction.bind(null, 'summarize')} />
+          <FloatingToolbar editor={editor} onPolish={handleAiAction.bind(null, 'polish')} onSummarize={handleAiAction.bind(null, 'summarize')} onTranslate={handleAiAction.bind(null, 'translate')} />
         </div>
       )}
 
@@ -458,23 +459,25 @@ export function Editor() {
       </div>
 
       {/* AI Result Modal */}
-      {aiModal && (
-        <AiResultModal
-          type={aiModal.type}
-          result={aiModal.result}
-          streaming={aiModal.streaming}
-          onInsert={() => {
-            if (editor) {
-              editor.chain().focus().insertContentAt({ from: aiModal.from, to: aiModal.to }, aiModal.result).run()
-            }
-            setAiModal(null)
-          }}
-          onDiscard={() => {
-            aiModalAbortRef.current?.abort()
-            setAiModal(null)
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {aiModal && (
+          <AiResultModal
+            type={aiModal.type}
+            result={aiModal.result}
+            streaming={aiModal.streaming}
+            onInsert={() => {
+              if (editor) {
+                editor.chain().focus().insertContentAt({ from: aiModal.from, to: aiModal.to }, aiModal.result).run()
+              }
+              setAiModal(null)
+            }}
+            onDiscard={() => {
+              aiModalAbortRef.current?.abort()
+              setAiModal(null)
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Footer */}
       <div
@@ -490,10 +493,11 @@ export function Editor() {
   )
 }
 
-function FloatingToolbar({ editor, onPolish, onSummarize }: {
+function FloatingToolbar({ editor, onPolish, onSummarize, onTranslate }: {
   editor: NonNullable<ReturnType<typeof useEditor>>
   onPolish: (from: number, to: number) => void
   onSummarize: (from: number, to: number) => void
+  onTranslate: (from: number, to: number) => void
 }) {
   const [visible, setVisible] = useState(false)
   const [selRange, setSelRange] = useState({ from: 0, to: 0 })
@@ -536,6 +540,7 @@ function FloatingToolbar({ editor, onPolish, onSummarize }: {
       <div className="toolbar-divider" />
       <ToolbarBtn title="AI 润色" active={false} onClick={() => onPolish(selRange.from, selRange.to)}><Wand2 size={13} style={{ color: 'var(--accent)' }} /></ToolbarBtn>
       <ToolbarBtn title="AI 摘要" active={false} onClick={() => onSummarize(selRange.from, selRange.to)}><FileTextIcon size={13} style={{ color: 'var(--accent)' }} /></ToolbarBtn>
+      <ToolbarBtn title="翻译成英文" active={false} onClick={() => onTranslate(selRange.from, selRange.to)}><Languages size={13} style={{ color: 'var(--accent)' }} /></ToolbarBtn>
     </div>
   )
 }
@@ -551,28 +556,36 @@ function ToolbarBtn({ children, active, title, onClick }: {
 }
 
 function AiResultModal({ type, result, streaming, onInsert, onDiscard }: {
-  type: 'polish' | 'summarize'
+  type: 'polish' | 'summarize' | 'translate'
   result: string
   streaming: boolean
   onInsert: () => void
   onDiscard: () => void
 }) {
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.4)' }}
       onClick={onDiscard}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
     >
-      <div
+      <motion.div
         className="rounded-2xl shadow-2xl flex flex-col"
         style={{ background: 'var(--bg)', border: '1px solid var(--border)', width: 520, maxHeight: '70vh' }}
         onClick={e => e.stopPropagation()}
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
       >
         <div className="flex items-center justify-between px-5 py-3 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-2">
             <Sparkles size={14} style={{ color: 'var(--accent)' }} />
             <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
-              {type === 'polish' ? 'AI 润色结果' : 'AI 摘要结果'}
+              {type === 'polish' ? 'AI 润色结果' : type === 'translate' ? 'AI 翻译结果' : 'AI 摘要结果'}
             </span>
           </div>
           <button onClick={onDiscard} className="toolbar-btn"><X size={14} /></button>
@@ -593,10 +606,10 @@ function AiResultModal({ type, result, streaming, onInsert, onDiscard }: {
             className="px-3 py-1.5 rounded-lg text-sm font-medium"
             style={{ background: result && !streaming ? 'var(--accent)' : 'var(--bg-muted)', color: result && !streaming ? '#fff' : 'var(--text-faint)' }}
           >
-            {type === 'polish' ? '替换选中内容' : '插入摘要'}
+            {type === 'polish' ? '替换选中内容' : type === 'translate' ? '替换选中内容' : '插入摘要'}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

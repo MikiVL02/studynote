@@ -1,5 +1,5 @@
 export type AIStreamRequest = {
-  type: 'continue' | 'polish' | 'summarize' | 'chat'
+  type: 'continue' | 'polish' | 'summarize' | 'translate' | 'chat'
   noteContent: string
   selection?: string
   messages?: { role: 'user' | 'assistant'; content: string }[]

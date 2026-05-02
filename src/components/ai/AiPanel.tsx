@@ -1,10 +1,30 @@
-import { useState, useRef, useEffect } from 'react'
-import { X, Send, Sparkles, Square, FileText } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { X, Send, Sparkles, Square, FileText, GripHorizontal } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { streamAI } from '../../lib/ai'
 import { extractTextFromJSON } from '../../lib/utils'
 
 type Message = { role: 'user' | 'assistant'; content: string }
+type ResizeDir = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+
+const DEFAULT_W = 360
+const DEFAULT_H = 520
+const MIN_W = 280
+const MIN_H = 320
+const MAX_W = 720
+const MAX_H = 900
+const HANDLE = 6 // resize handle thickness px
+
+const RESIZE_HANDLES: { dir: ResizeDir; cursor: string; style: React.CSSProperties }[] = [
+  { dir: 'n',  cursor: 'ns-resize',   style: { top: 0, left: HANDLE, right: HANDLE, height: HANDLE } },
+  { dir: 's',  cursor: 'ns-resize',   style: { bottom: 0, left: HANDLE, right: HANDLE, height: HANDLE } },
+  { dir: 'e',  cursor: 'ew-resize',   style: { right: 0, top: HANDLE, bottom: HANDLE, width: HANDLE } },
+  { dir: 'w',  cursor: 'ew-resize',   style: { left: 0, top: HANDLE, bottom: HANDLE, width: HANDLE } },
+  { dir: 'nw', cursor: 'nwse-resize', style: { top: 0, left: 0, width: HANDLE * 2, height: HANDLE * 2 } },
+  { dir: 'ne', cursor: 'nesw-resize', style: { top: 0, right: 0, width: HANDLE * 2, height: HANDLE * 2 } },
+  { dir: 'sw', cursor: 'nesw-resize', style: { bottom: 0, left: 0, width: HANDLE * 2, height: HANDLE * 2 } },
+  { dir: 'se', cursor: 'nwse-resize', style: { bottom: 0, right: 0, width: HANDLE * 2, height: HANDLE * 2 } },
+]
 
 export function AiPanel() {
   const { toggleAiPanel, notes, activeNoteId } = useAppStore()
@@ -17,9 +37,74 @@ export function AiPanel() {
   const bottomRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
+  const [pos, setPos] = useState(() => ({
+    x: window.innerWidth - DEFAULT_W - 24,
+    y: window.innerHeight - DEFAULT_H - 24,
+  }))
+  const [size, setSize] = useState({ w: DEFAULT_W, h: DEFAULT_H })
+
+  // refs for drag/resize so callbacks don't go stale
+  const posRef = useRef(pos)
+  const sizeRef = useRef(size)
+  useEffect(() => { posRef.current = pos }, [pos])
+  useEffect(() => { sizeRef.current = size }, [size])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX, startY = e.clientY
+    const { x: origX, y: origY } = posRef.current
+    const { w, h } = sizeRef.current
+
+    const onMove = (ev: MouseEvent) => {
+      const nextX = Math.max(0, Math.min(window.innerWidth - w, origX + ev.clientX - startX))
+      const nextY = Math.max(0, Math.min(window.innerHeight - h, origY + ev.clientY - startY))
+      setPos({ x: nextX, y: nextY })
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
+  const onResizeStart = useCallback((e: React.MouseEvent, dir: ResizeDir) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX, startY = e.clientY
+    const { x: origX, y: origY } = posRef.current
+    const { w: origW, h: origH } = sizeRef.current
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX
+      const dy = ev.clientY - startY
+      let newX = origX, newY = origY, newW = origW, newH = origH
+
+      if (dir.includes('e')) newW = Math.max(MIN_W, Math.min(MAX_W, origW + dx))
+      if (dir.includes('s')) newH = Math.max(MIN_H, Math.min(MAX_H, origH + dy))
+      if (dir.includes('w')) {
+        newW = Math.max(MIN_W, Math.min(MAX_W, origW - dx))
+        newX = origX + origW - newW
+      }
+      if (dir.includes('n')) {
+        newH = Math.max(MIN_H, Math.min(MAX_H, origH - dy))
+        newY = origY + origH - newH
+      }
+
+      setPos({ x: Math.max(0, newX), y: Math.max(0, newY) })
+      setSize({ w: newW, h: newH })
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
 
   const noteContent = activeNote
     ? `标题：${activeNote.title}\n\n${extractTextFromJSON(activeNote.content)}`
@@ -29,29 +114,20 @@ export function AiPanel() {
     if (!text.trim() || streaming) return
     const userMsg: Message = { role: 'user', content: text.trim() }
     const assistantMsg: Message = { role: 'assistant', content: '' }
-
     setMessages(prev => [...prev, userMsg, assistantMsg])
     setInput('')
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setStreaming(true)
 
     const controller = new AbortController()
     abortRef.current = controller
-
     try {
       await streamAI(
-        {
-          type: 'chat',
-          noteContent,
-          messages: messages.concat(userMsg),
-          userMessage: userMsg.content,
-        },
+        { type: 'chat', noteContent, messages: messages.concat(userMsg), userMessage: userMsg.content },
         (chunk) => {
           setMessages(prev => {
             const next = [...prev]
-            next[next.length - 1] = {
-              ...next[next.length - 1],
-              content: next[next.length - 1].content + chunk,
-            }
+            next[next.length - 1] = { ...next[next.length - 1], content: next[next.length - 1].content + chunk }
             return next
           })
         },
@@ -71,30 +147,55 @@ export function AiPanel() {
     }
   }
 
-  const summarize = () => {
-    if (!noteContent) return
-    send('请为当前笔记生成一份简洁的摘要。')
-  }
-
-  const stop = () => {
-    abortRef.current?.abort()
-  }
-
   return (
     <div
-      className="flex flex-col h-full shrink-0"
-      style={{ width: 320, borderLeft: '1px solid var(--border)', background: 'var(--bg-subtle)' }}
+      style={{
+        position: 'fixed',
+        left: pos.x,
+        top: pos.y,
+        width: size.w,
+        height: size.h,
+        zIndex: 200,
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--bg)',
+        border: '1px solid var(--border)',
+        borderRadius: 16,
+        boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+        overflow: 'hidden',
+      }}
     >
-      {/* Header */}
+      {/* Resize handles */}
+      {RESIZE_HANDLES.map(({ dir, cursor, style }) => (
+        <div
+          key={dir}
+          onMouseDown={e => onResizeStart(e, dir)}
+          style={{ position: 'absolute', zIndex: 10, cursor, ...style }}
+        />
+      ))}
+
+      {/* Header / drag handle */}
       <div
+        onMouseDown={onDragStart}
         className="flex items-center justify-between px-4 py-3 shrink-0"
-        style={{ borderBottom: '1px solid var(--border)' }}
+        style={{
+          borderBottom: '1px solid var(--border)',
+          cursor: 'grab',
+          userSelect: 'none',
+          background: 'var(--bg-subtle)',
+        }}
       >
         <div className="flex items-center gap-2">
-          <Sparkles size={15} style={{ color: 'var(--accent)' }} />
+          <GripHorizontal size={13} style={{ color: 'var(--text-faint)' }} />
+          <Sparkles size={14} style={{ color: 'var(--accent)' }} />
           <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>AI 助手</span>
         </div>
-        <button onClick={toggleAiPanel} className="toolbar-btn" title="关闭">
+        <button
+          onMouseDown={e => e.stopPropagation()}
+          onClick={toggleAiPanel}
+          className="toolbar-btn"
+          title="关闭"
+        >
           <X size={15} />
         </button>
       </div>
@@ -102,9 +203,9 @@ export function AiPanel() {
       {/* Quick actions */}
       <div className="px-3 py-2 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
         <button
-          onClick={summarize}
+          onClick={() => send('请为当前笔记生成一份简洁的摘要。')}
           disabled={!activeNote || streaming}
-          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
           style={{
             background: 'var(--bg-muted)',
             border: '1px solid var(--border)',
@@ -158,12 +259,16 @@ export function AiPanel() {
         <textarea
           ref={textareaRef}
           value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              send(input)
+          onChange={e => {
+            setInput(e.target.value)
+            const el = textareaRef.current
+            if (el) {
+              el.style.height = 'auto'
+              el.style.height = Math.min(el.scrollHeight, 120) + 'px'
             }
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) }
           }}
           placeholder={activeNote ? '向 AI 提问…' : '请先打开笔记'}
           disabled={!activeNote}
@@ -175,12 +280,15 @@ export function AiPanel() {
             color: 'var(--text)',
             maxHeight: 120,
             lineHeight: 1.5,
+            overflow: 'auto',
           }}
+          onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+          onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
         />
         {streaming ? (
           <button
-            onClick={stop}
-            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl transition-colors"
+            onClick={() => abortRef.current?.abort()}
+            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl"
             style={{ background: '#ef4444', color: '#fff' }}
             title="停止"
           >
@@ -190,7 +298,7 @@ export function AiPanel() {
           <button
             onClick={() => send(input)}
             disabled={!input.trim() || !activeNote}
-            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl transition-colors"
+            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl"
             style={{
               background: input.trim() && activeNote ? 'var(--accent)' : 'var(--bg-muted)',
               color: input.trim() && activeNote ? '#fff' : 'var(--text-faint)',

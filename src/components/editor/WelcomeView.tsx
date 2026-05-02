@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   FileText, Folder, Slash, MousePointer, Save,
   Search, Moon, Plus, Hash, Star, Image, Code2,
-  BookOpen, Maximize2,
+  BookOpen, Maximize2, Zap, Wand2, Bot,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 
@@ -72,6 +72,26 @@ const FEATURES = [
     title: '深色模式',
     desc: '点击左上角图标一键切换亮色 / 暗色主题',
   },
+  {
+    icon: <Zap size={18} />,
+    title: 'AI 续写',
+    desc: '点击标题旁 ⚡ 按钮，AI 基于当前上下文流式续写下一段',
+  },
+  {
+    icon: <Wand2 size={18} />,
+    title: 'AI 润色',
+    desc: '选中文字 → 浮动工具栏 → 润色，流式预览后一键替换原文',
+  },
+  {
+    icon: <FileText size={18} />,
+    title: 'AI 摘要',
+    desc: '选中段落生成片段摘要，或在 AI 面板一键生成全文摘要',
+  },
+  {
+    icon: <Bot size={18} />,
+    title: 'AI 问答',
+    desc: '点击 ✨ 打开 AI 助手面板，针对当前笔记内容自由提问',
+  },
 ]
 
 const SHORTCUTS: { mac: string[]; win: string[]; desc: string }[] = [
@@ -83,6 +103,9 @@ const SHORTCUTS: { mac: string[]; win: string[]; desc: string }[] = [
   { mac: ['⌘', '⇧', 'Z'], win: ['Ctrl', 'Y'],       desc: '重做' },
   { mac: ['/'],             win: ['/'],               desc: '命令菜单' },
   { mac: ['Esc'],           win: ['Esc'],             desc: '退出专注模式' },
+  { mac: ['⌘', 'N'],        win: ['Ctrl', 'N'],       desc: '新建笔记' },
+  { mac: ['⌘', '\\'],       win: ['Ctrl', '\\'],      desc: '切换专注模式' },
+  { mac: ['⌘', '⇧', 'J'],  win: ['Ctrl', '⇧', 'J'], desc: '打开 AI 助手' },
 ]
 
 function detectOS(): 'mac' | 'win' {

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Star, FileText, Folder, FolderOpen,
   ChevronRight, ChevronDown,
@@ -358,7 +359,9 @@ export function Sidebar() {
         </div>
       </aside>
 
-      {modelModalOpen && <ModelSettingsModal onClose={() => setModelModalOpen(false)} />}
+      <AnimatePresence>
+        {modelModalOpen && <ModelSettingsModal onClose={() => setModelModalOpen(false)} />}
+      </AnimatePresence>
 
       {/* Drag overlay */}
       <DragOverlay>

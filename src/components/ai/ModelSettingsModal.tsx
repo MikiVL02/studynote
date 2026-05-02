@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
 import { X, Plus, Check, Trash2, Bot, ChevronDown, ChevronUp } from 'lucide-react'
 
 type ModelInfo = {
@@ -67,15 +68,23 @@ export function ModelSettingsModal({ onClose }: { onClose: () => void }) {
   const activeModel = models.find(m => m.isActive)
 
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.45)' }}
       onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
     >
-      <div
+      <motion.div
         className="rounded-2xl shadow-2xl flex flex-col"
         style={{ background: 'var(--bg)', border: '1px solid var(--border)', width: 480, maxHeight: '80vh' }}
         onClick={e => e.stopPropagation()}
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -210,7 +219,7 @@ export function ModelSettingsModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

@@ -104,7 +104,7 @@ app.delete('/api/models/:id', (c) => {
 
 // ── AI types ──────────────────────────────────────────────────────────────────
 type AIStreamRequest = {
-  type: 'continue' | 'polish' | 'summarize' | 'chat'
+  type: 'continue' | 'polish' | 'summarize' | 'translate' | 'chat'
   noteContent: string
   selection?: string
   messages?: { role: 'user' | 'assistant'; content: string }[]
@@ -129,6 +129,10 @@ function buildMessages(req: AIStreamRequest): Anthropic.MessageParam[] {
 
   if (type === 'polish') {
     return [{ role: 'user', content: `请润色以下文字，改善语法、流畅度和表达，保持原意，直接输出润色后的结果，不要有任何解释：\n\n${selection ?? noteContent}` }]
+  }
+
+  if (type === 'translate') {
+    return [{ role: 'user', content: `请将以下文字翻译成英文，保持原文风格和格式，直接输出翻译结果，不要有任何解释：\n\n${selection ?? noteContent}` }]
   }
 
   return [{ role: 'user', content: `请为以下内容提炼要点摘要，用简洁的中文输出，不超过 150 字：\n\n${selection ?? noteContent}` }]

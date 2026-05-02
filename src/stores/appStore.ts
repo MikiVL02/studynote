@@ -14,10 +14,12 @@ interface AppState {
   activeTag: string | null
   sortBy: 'updatedAt' | 'createdAt' | 'title'
   sortOrder: 'asc' | 'desc'
+  _notesVersion: number
+  _filteredCache: { key: string; result: Note[] } | null
 
   // actions
   loadAll: () => Promise<void>
-  createNote: (folderId?: string | null) => Promise<string>
+  createNote: (folderId?: string | null, init?: { title?: string; content?: string }) => Promise<string>
   updateNote: (id: string, patch: Partial<Note>, opts?: { silent?: boolean }) => Promise<void>
   deleteNote: (id: string) => Promise<void>
   toggleStar: (id: string) => Promise<void>
@@ -51,13 +53,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeTag: null,
   sortBy: 'updatedAt',
   sortOrder: 'desc',
+  _notesVersion: 0,
+  _filteredCache: null,
 
   loadAll: async () => {
     const [notes, folders] = await Promise.all([
       db.notes.orderBy('updatedAt').reverse().toArray(),
       db.folders.orderBy('order').toArray(),
     ])
-    set({ notes, folders })
+    set({ notes, folders, _notesVersion: get()._notesVersion + 1, _filteredCache: null })
     // Keep welcome screen as default; only auto-select if already on a real note
     const cur = get().activeNoteId
     if (cur && cur !== '__welcome__' && !notes.find(n => n.id === cur)) {
@@ -65,13 +69,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  createNote: async (folderId = null) => {
+  createNote: async (folderId = null, init?: { title?: string; content?: string }) => {
     const id = generateId()
     const now = Date.now()
     const note: Note = {
       id,
-      title: '无标题笔记',
-      content: JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }] }),
+      title: init?.title ?? '无标题笔记',
+      content: init?.content ?? JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }] }),
       folderId: folderId ?? get().activeFolderId as string | null,
       tags: [],
       starred: false,
@@ -80,7 +84,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       wordCount: 0,
     }
     await db.notes.add(note)
-    set(s => ({ notes: [note, ...s.notes], activeNoteId: id }))
+    set(s => ({ notes: [note, ...s.notes], activeNoteId: id, _notesVersion: s._notesVersion + 1, _filteredCache: null }))
     return id
   },
 
@@ -93,6 +97,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       notes: s.notes.map(n =>
         n.id === id ? { ...n, ...dbPatch } : n
       ).sort((a, b) => b.updatedAt - a.updatedAt),
+      _notesVersion: s._notesVersion + 1,
+      _filteredCache: null,
     }))
   },
 
@@ -101,7 +107,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(s => {
       const notes = s.notes.filter(n => n.id !== id)
       const activeNoteId = s.activeNoteId === id ? '__welcome__' : s.activeNoteId
-      return { notes, activeNoteId }
+      return { notes, activeNoteId, _notesVersion: s._notesVersion + 1, _filteredCache: null }
     })
   },
 
@@ -152,7 +158,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSortOrder: (order) => set({ sortOrder: order }),
 
   filteredNotes: () => {
-    const { notes, activeFolderId, searchQuery, activeTag, sortBy, sortOrder } = get()
+    const { notes, activeFolderId, searchQuery, activeTag, sortBy, sortOrder, _notesVersion, _filteredCache } = get()
+    const cacheKey = `${_notesVersion}|${activeFolderId}|${searchQuery}|${activeTag}|${sortBy}|${sortOrder}`
+    if (_filteredCache?.key === cacheKey) return _filteredCache.result
+
     let result = notes
 
     if (activeFolderId === 'starred') {
@@ -184,6 +193,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       return sortOrder === 'asc' ? cmp : -cmp
     })
 
+    set({ _filteredCache: { key: cacheKey, result } })
     return result
   },
 }))

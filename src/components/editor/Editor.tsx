@@ -30,6 +30,7 @@ import { useAppStore } from '../../stores/appStore'
 import { countWords } from '../../lib/utils'
 import { streamAI } from '../../lib/ai'
 import { WelcomeView } from './WelcomeView'
+import { ExportMenu } from './ExportMenu'
 
 const lowlight = createLowlight(common)
 
@@ -385,6 +386,9 @@ export function Editor() {
               style={{ color: activeNote.starred ? '#f59e0b' : 'var(--text-faint)' }}
             />
           </button>
+          <div className="shrink-0 mt-1.5">
+            <ExportMenu title={title} content={activeNote.content} />
+          </div>
           <button
             onClick={toggleFocusMode}
             title={focusMode ? '退出专注模式 (Esc)' : '专注模式'}

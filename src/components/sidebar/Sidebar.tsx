@@ -4,9 +4,10 @@ import {
   Search, Plus, Star, FileText, Folder, FolderOpen,
   ChevronRight, ChevronDown,
   Trash2, Edit2, Moon, Sun, FolderPlus, Hash, BookOpen,
-  ArrowUpDown, Check, X, Bot,
+  ArrowUpDown, Check, X, Bot, Upload,
 } from 'lucide-react'
 import { ModelSettingsModal } from '../ai/ModelSettingsModal'
+import { importMarkdown, importTxt, importDocx, importPDF } from '../../lib/import'
 import {
   DndContext, DragOverlay, useDraggable, useDroppable,
   useSensor, useSensors, MouseSensor, TouchSensor,
@@ -35,6 +36,7 @@ export function Sidebar() {
   const [noteEditValue, setNoteEditValue] = useState('')
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [modelModalOpen, setModelModalOpen] = useState(false)
+  const [localSearch, setLocalSearch] = useState(searchQuery)
   const [contextMenu, setContextMenu] = useState<{
     type: 'note' | 'folder'
     id: string
@@ -52,6 +54,11 @@ export function Sidebar() {
   const noteEditRef = useRef<HTMLInputElement | null>(null)
   const newFolderRef = useRef<HTMLInputElement | null>(null)
   const displayed = filteredNotes()
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(localSearch), 300)
+    return () => clearTimeout(t)
+  }, [localSearch, setSearch])
 
   useEffect(() => {
     if (editingFolderId && editInputRef.current) editInputRef.current.focus()
@@ -102,6 +109,31 @@ export function Sidebar() {
       ? activeFolderId
       : null
     await createNote(folderId)
+  }
+
+  const importFileRef = useRef<HTMLInputElement>(null)
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const folderId = typeof activeFolderId === 'string' && activeFolderId !== 'all' && activeFolderId !== 'starred'
+      ? activeFolderId
+      : null
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    let result: { title: string; content: string }
+    if (ext === 'md' || ext === 'markdown') {
+      result = importMarkdown(await file.text())
+    } else if (ext === 'txt') {
+      result = importTxt(await file.text())
+    } else if (ext === 'docx') {
+      result = await importDocx(await file.arrayBuffer())
+    } else if (ext === 'pdf') {
+      result = await importPDF(await file.arrayBuffer())
+    } else {
+      return
+    }
+    await createNote(folderId, result)
   }
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -182,8 +214,8 @@ export function Sidebar() {
           >
             <Search size={13} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
             <input
-              value={searchQuery}
-              onChange={e => setSearch(e.target.value)}
+              value={localSearch}
+              onChange={e => setLocalSearch(e.target.value)}
               placeholder="搜索笔记…"
               className="bg-transparent outline-none text-sm w-full"
               style={{ color: 'var(--text)' }}
@@ -356,6 +388,24 @@ export function Sidebar() {
             <Bot size={13} />
             AI 模型
           </button>
+          <button
+            onClick={() => importFileRef.current?.click()}
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs transition-colors"
+            style={{ color: 'var(--text-faint)' }}
+            title="导入文件 (.md .txt .docx .pdf)"
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-muted)'; e.currentTarget.style.color = 'var(--text)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-faint)' }}
+          >
+            <Upload size={13} />
+            导入
+          </button>
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".md,.markdown,.txt,.docx,.pdf"
+            style={{ display: 'none' }}
+            onChange={handleImportFile}
+          />
         </div>
       </aside>
 

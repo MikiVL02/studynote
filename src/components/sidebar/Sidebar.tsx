@@ -3,8 +3,9 @@ import {
   Search, Plus, Star, FileText, Folder, FolderOpen,
   ChevronRight, ChevronDown,
   Trash2, Edit2, Moon, Sun, FolderPlus, Hash, BookOpen,
-  ArrowUpDown, Check, X,
+  ArrowUpDown, Check, X, Bot,
 } from 'lucide-react'
+import { ModelSettingsModal } from '../ai/ModelSettingsModal'
 import {
   DndContext, DragOverlay, useDraggable, useDroppable,
   useSensor, useSensors, MouseSensor, TouchSensor,
@@ -32,6 +33,7 @@ export function Sidebar() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [noteEditValue, setNoteEditValue] = useState('')
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
+  const [modelModalOpen, setModelModalOpen] = useState(false)
   const [contextMenu, setContextMenu] = useState<{
     type: 'note' | 'folder'
     id: string
@@ -310,8 +312,7 @@ export function Sidebar() {
         </div>
 
         {/* Context menu */}
-        {contextMenu && (
-          <div
+        {contextMenu && (          <div
             className="fixed z-50 rounded-lg py-1 shadow-xl"
             style={{ top: contextMenu.y, left: contextMenu.x, background: 'var(--bg)', border: '1px solid var(--border)', minWidth: 160 }}
             onClick={e => e.stopPropagation()}
@@ -338,7 +339,26 @@ export function Sidebar() {
             )}
           </div>
         )}
+
+        {/* Bottom toolbar */}
+        <div
+          className="px-3 py-2 shrink-0 flex items-center justify-between"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <button
+            onClick={() => setModelModalOpen(true)}
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs transition-colors"
+            style={{ color: 'var(--text-faint)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-muted)'; e.currentTarget.style.color = 'var(--text)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-faint)' }}
+          >
+            <Bot size={13} />
+            AI 模型
+          </button>
+        </div>
       </aside>
+
+      {modelModalOpen && <ModelSettingsModal onClose={() => setModelModalOpen(false)} />}
 
       {/* Drag overlay */}
       <DragOverlay>

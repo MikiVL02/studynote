@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
 import { Sidebar } from './components/sidebar/Sidebar'
 import { Editor } from './components/editor/Editor'
+import { AiPanel } from './components/ai/AiPanel'
 import { useAppStore } from './stores/appStore'
 import { seedIfEmpty, deduplicateDB } from './db'
 
 export default function App() {
-  const { loadAll, theme, focusMode } = useAppStore()
+  const { loadAll, theme, focusMode, aiPanelOpen } = useAppStore()
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -23,6 +24,7 @@ export default function App() {
         <Sidebar />
       </div>
       <Editor />
+      {aiPanelOpen && !focusMode && <AiPanel />}
     </div>
   )
 }

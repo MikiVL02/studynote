@@ -10,6 +10,7 @@ interface AppState {
   searchQuery: string
   theme: 'light' | 'dark'
   focusMode: boolean
+  aiPanelOpen: boolean
   activeTag: string | null
   sortBy: 'updatedAt' | 'createdAt' | 'title'
   sortOrder: 'asc' | 'desc'
@@ -30,6 +31,7 @@ interface AppState {
   setSearch: (q: string) => void
   toggleTheme: () => void
   toggleFocusMode: () => void
+  toggleAiPanel: () => void
   setActiveTag: (tag: string | null) => void
   setSortBy: (by: 'updatedAt' | 'createdAt' | 'title') => void
   setSortOrder: (order: 'asc' | 'desc') => void
@@ -45,6 +47,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchQuery: '',
   theme: (localStorage.getItem('theme') as 'light' | 'dark') || 'light',
   focusMode: false,
+  aiPanelOpen: false,
   activeTag: null,
   sortBy: 'updatedAt',
   sortOrder: 'desc',
@@ -143,6 +146,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleFocusMode: () => set(s => ({ focusMode: !s.focusMode })),
+  toggleAiPanel: () => set(s => ({ aiPanelOpen: !s.aiPanelOpen })),
   setActiveTag: (tag) => set({ activeTag: tag }),
   setSortBy: (by) => set({ sortBy: by }),
   setSortOrder: (order) => set({ sortOrder: order }),

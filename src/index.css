@@ -269,3 +269,19 @@
 .hljs-meta, .hljs-deletion { color: var(--hl-meta); }
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: bold; }
+
+/* ── AI streaming cursor ── */
+@keyframes ai-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.ai-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--accent);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  animation: ai-blink 0.8s ease infinite;
+}

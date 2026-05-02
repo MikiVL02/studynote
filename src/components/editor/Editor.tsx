@@ -23,9 +23,11 @@ import {
   Highlighter, List, ListOrdered, Quote,
   Heading1, Heading2, Heading3, Minus, CheckSquare, Table as TableIcon,
   Type, Star, ImageIcon, Maximize2, Minimize2, Hash, X,
+  Sparkles, Zap, Wand2, FileText as FileTextIcon, Square,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { countWords } from '../../lib/utils'
+import { streamAI } from '../../lib/ai'
 import { WelcomeView } from './WelcomeView'
 
 const lowlight = createLowlight(common)
@@ -76,13 +78,28 @@ function SlashMenu({ items, selectedIndex, onSelect }: {
 }
 
 export function Editor() {
-  const { activeNoteId, notes, updateNote, toggleStar, focusMode, toggleFocusMode } = useAppStore()
+  const { activeNoteId, notes, updateNote, toggleStar, focusMode, toggleFocusMode, toggleAiPanel, aiPanelOpen } = useAppStore()
   const activeNote = notes.find(n => n.id === activeNoteId)
 
   const [title, setTitle] = useState(activeNote?.title ?? '')
   const [wordCount, setWordCount] = useState(0)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
   const [tagInput, setTagInput] = useState('')
+
+  // AI continue state
+  const [aiContinuing, setAiContinuing] = useState(false)
+  const aiAbortRef = useRef<AbortController | null>(null)
+
+  // AI modal state
+  const [aiModal, setAiModal] = useState<{
+    type: 'polish' | 'summarize'
+    from: number
+    to: number
+    selection: string
+    result: string
+    streaming: boolean
+  } | null>(null)
+  const aiModalAbortRef = useRef<AbortController | null>(null)
 
   const [slashOpen, setSlashOpen] = useState(false)
   const [slashQuery, setSlashQuery] = useState('')
@@ -279,6 +296,49 @@ export function Editor() {
     }, 500)
   }
 
+  const handleAiContinue = async () => {
+    if (!editor || !activeNote) return
+    if (aiContinuing) { aiAbortRef.current?.abort(); return }
+    const controller = new AbortController()
+    aiAbortRef.current = controller
+    setAiContinuing(true)
+    try {
+      await streamAI(
+        { type: 'continue', noteContent: editor.getText() },
+        (chunk) => { editor.commands.insertContent(chunk) },
+        controller.signal,
+      )
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return
+    } finally {
+      setAiContinuing(false)
+      aiAbortRef.current = null
+    }
+  }
+
+  const handleAiAction = async (type: 'polish' | 'summarize', from: number, to: number) => {
+    if (!editor || !activeNote) return
+    const selection = editor.state.doc.textBetween(from, to, '\n')
+    const controller = new AbortController()
+    aiModalAbortRef.current = controller
+    setAiModal({ type, from, to, selection, result: '', streaming: true })
+    try {
+      await streamAI(
+        { type, noteContent: editor.getText(), selection },
+        (chunk) => {
+          setAiModal(prev => prev ? { ...prev, result: prev.result + chunk } : null)
+        },
+        controller.signal,
+      )
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') {
+        setAiModal(prev => prev ? { ...prev, result: '❌ 请求失败', streaming: false } : null)
+        return
+      }
+    }
+    setAiModal(prev => prev ? { ...prev, streaming: false } : null)
+  }
+
   if (!activeNote || activeNoteId === '__welcome__') {
     return <WelcomeView />
   }
@@ -297,6 +357,22 @@ export function Editor() {
             className="flex-1 bg-transparent outline-none text-3xl font-bold min-w-0"
             style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}
           />
+          <button
+            onClick={handleAiContinue}
+            title={aiContinuing ? '停止续写' : 'AI 续写'}
+            className="toolbar-btn shrink-0 mt-2"
+          >
+            {aiContinuing
+              ? <Square size={14} fill="currentColor" style={{ color: 'var(--accent)' }} />
+              : <Zap size={14} style={{ color: 'var(--text-faint)' }} />}
+          </button>
+          <button
+            onClick={toggleAiPanel}
+            title="AI 助手"
+            className="toolbar-btn shrink-0 mt-2"
+          >
+            <Sparkles size={14} style={{ color: aiPanelOpen ? 'var(--accent)' : 'var(--text-faint)' }} />
+          </button>
           <button
             onClick={() => activeNoteId && toggleStar(activeNoteId)}
             title={activeNote.starred ? '取消收藏' : '收藏'}
@@ -364,7 +440,7 @@ export function Editor() {
       {/* Floating toolbar */}
       {editor && (
         <div style={{ position: 'fixed', zIndex: 100, pointerEvents: 'none' }}>
-          <FloatingToolbar editor={editor} />
+          <FloatingToolbar editor={editor} onPolish={handleAiAction.bind(null, 'polish')} onSummarize={handleAiAction.bind(null, 'summarize')} />
         </div>
       )}
 
@@ -381,6 +457,25 @@ export function Editor() {
         </div>
       </div>
 
+      {/* AI Result Modal */}
+      {aiModal && (
+        <AiResultModal
+          type={aiModal.type}
+          result={aiModal.result}
+          streaming={aiModal.streaming}
+          onInsert={() => {
+            if (editor) {
+              editor.chain().focus().insertContentAt({ from: aiModal.from, to: aiModal.to }, aiModal.result).run()
+            }
+            setAiModal(null)
+          }}
+          onDiscard={() => {
+            aiModalAbortRef.current?.abort()
+            setAiModal(null)
+          }}
+        />
+      )}
+
       {/* Footer */}
       <div
         className="flex items-center justify-between px-12 py-2 text-xs shrink-0"
@@ -395,8 +490,13 @@ export function Editor() {
   )
 }
 
-function FloatingToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEditor>> }) {
+function FloatingToolbar({ editor, onPolish, onSummarize }: {
+  editor: NonNullable<ReturnType<typeof useEditor>>
+  onPolish: (from: number, to: number) => void
+  onSummarize: (from: number, to: number) => void
+}) {
   const [visible, setVisible] = useState(false)
+  const [selRange, setSelRange] = useState({ from: 0, to: 0 })
   const [pos, setPos] = useState({ top: 0, left: 0 })
 
   useEffect(() => {
@@ -405,6 +505,7 @@ function FloatingToolbar({ editor }: { editor: NonNullable<ReturnType<typeof use
       const { selection } = state
       if (selection.empty) { setVisible(false); return }
       const { from, to } = selection
+      setSelRange({ from, to })
       const start = view.coordsAtPos(from)
       const end = view.coordsAtPos(to)
       const top = Math.min(start.top, end.top) - 48
@@ -432,6 +533,9 @@ function FloatingToolbar({ editor }: { editor: NonNullable<ReturnType<typeof use
       <ToolbarBtn title="H2" active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 size={13} /></ToolbarBtn>
       <div className="toolbar-divider" />
       <ToolbarBtn title="引用" active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}><Quote size={13} /></ToolbarBtn>
+      <div className="toolbar-divider" />
+      <ToolbarBtn title="AI 润色" active={false} onClick={() => onPolish(selRange.from, selRange.to)}><Wand2 size={13} style={{ color: 'var(--accent)' }} /></ToolbarBtn>
+      <ToolbarBtn title="AI 摘要" active={false} onClick={() => onSummarize(selRange.from, selRange.to)}><FileTextIcon size={13} style={{ color: 'var(--accent)' }} /></ToolbarBtn>
     </div>
   )
 }
@@ -443,5 +547,56 @@ function ToolbarBtn({ children, active, title, onClick }: {
     <button title={title} onMouseDown={(e) => { e.preventDefault(); onClick() }} className={`toolbar-btn ${active ? 'active' : ''}`}>
       {children}
     </button>
+  )
+}
+
+function AiResultModal({ type, result, streaming, onInsert, onDiscard }: {
+  type: 'polish' | 'summarize'
+  result: string
+  streaming: boolean
+  onInsert: () => void
+  onDiscard: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.4)' }}
+      onClick={onDiscard}
+    >
+      <div
+        className="rounded-2xl shadow-2xl flex flex-col"
+        style={{ background: 'var(--bg)', border: '1px solid var(--border)', width: 520, maxHeight: '70vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-3 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} style={{ color: 'var(--accent)' }} />
+            <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+              {type === 'polish' ? 'AI 润色结果' : 'AI 摘要结果'}
+            </span>
+          </div>
+          <button onClick={onDiscard} className="toolbar-btn"><X size={14} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text)' }}>
+          {result || <span style={{ color: 'var(--text-faint)' }}>生成中…</span>}
+          {streaming && <span className="ai-cursor" />}
+        </div>
+        <div className="flex items-center justify-end gap-2 px-5 py-3 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+          <button onClick={onDiscard} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-muted)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+            取消
+          </button>
+          <button
+            onClick={onInsert}
+            disabled={!result || streaming}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium"
+            style={{ background: result && !streaming ? 'var(--accent)' : 'var(--bg-muted)', color: result && !streaming ? '#fff' : 'var(--text-faint)' }}
+          >
+            {type === 'polish' ? '替换选中内容' : '插入摘要'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

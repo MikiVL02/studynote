@@ -195,7 +195,7 @@ export function Sidebar() {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-          <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>我的笔记</span>
+          <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>笔记</span>
           <div className="flex items-center gap-1">
             <button onClick={toggleTheme} className="toolbar-btn" title={theme === 'light' ? '暗色模式' : '亮色模式'}>
               {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}

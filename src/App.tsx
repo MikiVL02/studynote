@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Sidebar } from './components/sidebar/Sidebar'
 import { Editor } from './components/editor/Editor'
 import { AiPanel } from './components/ai/AiPanel'
@@ -7,6 +7,7 @@ import { seedIfEmpty, deduplicateDB } from './db'
 
 export default function App() {
   const { loadAll, theme, focusMode, aiPanelOpen, toggleFocusMode, toggleAiPanel, createNote, activeFolderId } = useAppStore()
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -31,10 +32,34 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden" style={{ background: 'var(--bg)' }}>
-      <div className={`sidebar-panel${focusMode ? ' hidden' : ''}`} style={{ width: 260 }}>
-        <Sidebar />
+      <>
+        {mobileSidebarOpen && (
+          <div
+            className="fixed inset-0 z-30"
+            style={{ background: 'rgba(0,0,0,0.4)' }}
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+        <div
+          className={`sidebar-panel${focusMode ? ' hidden' : ''}`}
+          style={{ width: 260 }}
+          data-mobile-open={mobileSidebarOpen}
+        >
+          <Sidebar />
+        </div>
+        {!focusMode && (
+          <button
+            className="mobile-menu-btn"
+            onClick={() => setMobileSidebarOpen(v => !v)}
+            aria-label="打开菜单"
+          >
+            ☰
+          </button>
+        )}
+      </>
+      <div className="flex-1 min-w-0 h-full flex flex-col editor-main">
+        <Editor />
       </div>
-      <Editor />
       {aiPanelOpen && <AiPanel />}
     </div>
   )

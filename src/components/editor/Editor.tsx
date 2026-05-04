@@ -370,14 +370,14 @@ export function Editor() {
           </button>
           <button
             onClick={toggleAiPanel}
-            title="AI 助手"
+            title={aiPanelOpen ? '关闭 AI 助手 (⌘⇧J)' : '打开 AI 助手 (⌘⇧J)'}
             className="toolbar-btn shrink-0 mt-2"
           >
             <Sparkles size={14} style={{ color: aiPanelOpen ? 'var(--accent)' : 'var(--text-faint)' }} />
           </button>
           <button
             onClick={() => activeNoteId && toggleStar(activeNoteId)}
-            title={activeNote.starred ? '取消收藏' : '收藏'}
+            title={activeNote.starred ? '取消收藏' : '收藏笔记'}
             className="toolbar-btn shrink-0 mt-2"
           >
             <Star
@@ -391,7 +391,7 @@ export function Editor() {
           </div>
           <button
             onClick={toggleFocusMode}
-            title={focusMode ? '退出专注模式 (Esc)' : '专注模式'}
+            title={focusMode ? '退出专注模式' : '专注模式 (⌘\\)'}
             className="toolbar-btn shrink-0 mt-2"
           >
             {focusMode

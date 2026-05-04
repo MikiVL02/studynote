@@ -250,7 +250,14 @@ export function AiPanel() {
                       ul: ({children}) => <ul className="list-disc pl-4 mb-1">{children}</ul>,
                       ol: ({children}) => <ol className="list-decimal pl-4 mb-1">{children}</ol>,
                       li: ({children}) => <li className="mb-0.5">{children}</li>,
-                      code: ({children}) => <code className="px-1 rounded text-xs" style={{background:'var(--bg-muted)'}}>{children}</code>,
+                      pre: ({children}) => (
+                        <pre className="rounded-lg p-3 my-2 overflow-x-auto text-xs" style={{background:'var(--bg-muted)'}}>
+                          {children}
+                        </pre>
+                      ),
+                      code: ({className, children}) => (
+                        <code className={`px-1 rounded text-xs ${className ?? ''}`} style={{background:'var(--bg-muted)'}}>{children}</code>
+                      ),
                       strong: ({children}) => <strong style={{color:'var(--text)'}}>{children}</strong>,
                     }}
                   >{msg.content}</ReactMarkdown>

@@ -350,7 +350,7 @@ export function Editor() {
   return (
     <div className="flex-1 flex flex-col min-w-0 h-full" style={{ background: 'var(--bg)' }}>
       {/* Title row */}
-      <div className="px-12 pt-10 pb-0 max-w-3xl mx-auto w-full">
+      <div className={`px-12 pt-10 pb-0 mx-auto w-full${focusMode ? ' max-w-2xl' : ' max-w-3xl'}`}>
         <div className="flex items-start gap-2">
           <input
             value={title}
@@ -402,7 +402,7 @@ export function Editor() {
       </div>
 
       {/* Tag row */}
-      <div className="px-12 pb-2 max-w-3xl mx-auto w-full">
+      <div className={`px-12 pb-2 mx-auto w-full${focusMode ? ' max-w-2xl' : ' max-w-3xl'}`}>
         <div className="flex items-center flex-wrap gap-1.5 min-h-[26px]">
           {activeNote.tags.map(tag => (
             <span
@@ -451,7 +451,7 @@ export function Editor() {
 
       {/* Editor scroll */}
       <div className="flex-1 overflow-y-auto editor-scroll relative px-12 pt-4 pb-4">
-        <div className="max-w-3xl mx-auto w-full relative">
+        <div className={`mx-auto w-full relative${focusMode ? ' max-w-2xl' : ' max-w-3xl'}`}>
           <EditorContent editor={editor} />
 
           {slashOpen && filteredSlash.length > 0 && (

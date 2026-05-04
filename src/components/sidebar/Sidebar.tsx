@@ -290,7 +290,7 @@ export function Sidebar() {
               {sortMenuOpen && (
                 <div
                   className="absolute right-0 top-full mt-1 rounded-lg py-1 z-50 shadow-xl"
-                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', minWidth: 140 }}
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', minWidth: 140, left: 'auto' }}
                   onClick={e => e.stopPropagation()}
                 >
                   {SORT_OPTIONS.map(opt => (

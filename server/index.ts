@@ -153,7 +153,7 @@ app.post('/api/ai/stream', async (c) => {
 
   const stream = await aiClient.messages.stream({
     model: modelId,
-    max_tokens: 1024,
+    max_tokens: 4096,
     system: buildSystemPrompt(req.type, req.noteContent),
     messages: buildMessages(req),
   })

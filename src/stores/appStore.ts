@@ -6,7 +6,7 @@ interface AppState {
   notes: Note[]
   folders: Folder[]
   activeNoteId: string | null
-  activeFolderId: string | null | 'all' | 'starred'
+  activeFolderId: string | null | 'all' | 'starred' | 'trash'
   searchQuery: string
   theme: 'light' | 'dark'
   focusMode: boolean
@@ -39,6 +39,9 @@ interface AppState {
   setSortOrder: (order: 'asc' | 'desc') => void
 
   filteredNotes: () => Note[]
+  restoreNote: (id: string) => Promise<void>
+  emptyTrash: () => Promise<void>
+  trashNotes: () => Note[]
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -57,10 +60,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   _filteredCache: null,
 
   loadAll: async () => {
-    const [notes, folders] = await Promise.all([
+    let [notes, folders] = await Promise.all([
       db.notes.orderBy('updatedAt').reverse().toArray(),
       db.folders.orderBy('order').toArray(),
     ])
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000
+    const expired = notes.filter(n => n.deletedAt !== null && Date.now() - n.deletedAt > THIRTY_DAYS)
+    if (expired.length > 0) {
+      await db.notes.bulkDelete(expired.map(n => n.id))
+      notes = notes.filter(n => !expired.some(e => e.id === n.id))
+    }
     set({ notes, folders, _notesVersion: get()._notesVersion + 1, _filteredCache: null })
     // Keep welcome screen as default; only auto-select if already on a real note
     const cur = get().activeNoteId
@@ -104,12 +113,34 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteNote: async (id) => {
-    await db.notes.delete(id)
+    const deletedAt = Date.now()
+    await db.notes.update(id, { deletedAt })
     set(s => {
-      const notes = s.notes.filter(n => n.id !== id)
+      const notes = s.notes.map(n => n.id === id ? { ...n, deletedAt } : n)
       const activeNoteId = s.activeNoteId === id ? '__welcome__' : s.activeNoteId
       return { notes, activeNoteId, _notesVersion: s._notesVersion + 1, _filteredCache: null }
     })
+  },
+
+  restoreNote: async (id) => {
+    await db.notes.update(id, { deletedAt: null })
+    set(s => ({
+      notes: s.notes.map(n => n.id === id ? { ...n, deletedAt: null } : n),
+      _notesVersion: s._notesVersion + 1,
+      _filteredCache: null,
+    }))
+  },
+
+  emptyTrash: async () => {
+    const trashed = await db.notes.where('deletedAt').above(0).toArray()
+    const ids = trashed.map(n => n.id)
+    await db.notes.bulkDelete(ids)
+    set(s => ({
+      notes: s.notes.filter(n => n.deletedAt === null),
+      activeNoteId: ids.includes(s.activeNoteId ?? '') ? '__welcome__' : s.activeNoteId,
+      _notesVersion: s._notesVersion + 1,
+      _filteredCache: null,
+    }))
   },
 
   toggleStar: async (id) => {
@@ -163,7 +194,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const cacheKey = `${_notesVersion}|${activeFolderId}|${searchQuery}|${activeTag}|${sortBy}|${sortOrder}`
     if (_filteredCache?.key === cacheKey) return _filteredCache.result
 
+    if (activeFolderId === 'trash') return []
+
     let result = notes
+    result = result.filter(n => n.deletedAt === null)
 
     if (activeFolderId === 'starred') {
       result = result.filter(n => n.starred)
@@ -196,5 +230,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ _filteredCache: { key: cacheKey, result } })
     return result
+  },
+
+  trashNotes: () => {
+    const { notes } = get()
+    return notes
+      .filter(n => n.deletedAt !== null)
+      .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0))
   },
 }))

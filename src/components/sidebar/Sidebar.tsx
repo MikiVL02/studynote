@@ -582,32 +582,34 @@ function DraggableNoteItem({ note, active, editing, editValue, editRef, activeTa
             </span>
           )}
         </div>
-        {hovered ? (
-          <div className="flex items-center gap-0.5 shrink-0">
-            <button
-              className="toolbar-btn"
-              style={{ width: 20, height: 20, color: note.starred ? '#f59e0b' : 'var(--text-faint)' }}
-              title={note.starred ? '取消收藏' : '收藏'}
-              onClick={(e) => { e.stopPropagation(); onToggleStar() }}
-            >
-              <Star size={12} fill={note.starred ? '#f59e0b' : 'none'} />
-            </button>
-            <button
-              className="toolbar-btn"
-              style={{ width: 20, height: 20, color: '#ef4444', opacity: 0.8 }}
-              title="删除笔记"
-              onClick={(e) => { e.stopPropagation(); onDelete() }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '0.8')}
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
-        ) : (
-          <span className="text-xs shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }}>
-            {formatDate(note.updatedAt)}
-          </span>
-        )}
+        <div className="flex items-center gap-0.5 shrink-0">
+          {hovered ? (
+            <>
+              <button
+                className="toolbar-btn"
+                style={{ width: 20, height: 20, color: note.starred ? '#f59e0b' : 'var(--text-faint)' }}
+                title={note.starred ? '取消收藏' : '收藏'}
+                onClick={(e) => { e.stopPropagation(); onToggleStar() }}
+              >
+                <Star size={12} fill={note.starred ? '#f59e0b' : 'none'} />
+              </button>
+              <button
+                className="toolbar-btn"
+                style={{ width: 20, height: 20, color: '#ef4444', opacity: 0.8 }}
+                title="删除笔记"
+                onClick={(e) => { e.stopPropagation(); onDelete() }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '0.8')}
+              >
+                <Trash2 size={12} />
+              </button>
+            </>
+          ) : (
+            <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
+              {formatDate(note.updatedAt)}
+            </span>
+          )}
+        </div>
       </div>
       {note.tags.length > 0 && (
         <div className="flex gap-1 mt-1 flex-wrap">

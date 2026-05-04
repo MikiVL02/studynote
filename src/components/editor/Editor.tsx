@@ -184,7 +184,14 @@ export function Editor() {
             return true
           }
           if (event.key === 'Escape') {
+            if (slashStartPos.current !== null && editor) {
+              const { state, dispatch } = editor.view
+              const { from } = state.selection
+              const tr = state.tr.delete(slashStartPos.current, from)
+              dispatch(tr)
+            }
             setSlashOpen(false)
+            slashStartPos.current = null
             return true
           }
         }

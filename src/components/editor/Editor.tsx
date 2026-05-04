@@ -320,6 +320,9 @@ export function Editor() {
     } catch (e) {
       if ((e as Error).name === 'AbortError') return
     } finally {
+      if (editor) {
+        editor.commands.setTextSelection(editor.state.doc.content.size)
+      }
       setAiContinuing(false)
       aiAbortRef.current = null
     }

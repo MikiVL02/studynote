@@ -15,6 +15,7 @@ import {
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { useAppStore } from '../../stores/appStore'
+import { TrashView } from './TrashView'
 import { formatDate } from '../../lib/utils'
 import type { Folder as FolderType, Note } from '../../db'
 
@@ -25,6 +26,7 @@ export function Sidebar() {
     updateNote, updateFolder, setActiveNote, setActiveFolder, setSearch,
     toggleTheme, toggleStar, filteredNotes,
     activeTag, setActiveTag, sortBy, sortOrder, setSortBy, setSortOrder,
+    trashNotes,
   } = useAppStore()
 
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
@@ -229,6 +231,13 @@ export function Sidebar() {
           <NavItem icon={<BookOpen size={14} />} label="使用指南" active={activeNoteId === '__welcome__'} onClick={() => setActiveNote('__welcome__')} />
           <NavItem icon={<FileText size={14} />} label="所有笔记" count={notes.length} active={activeFolderId === 'all' && activeNoteId !== '__welcome__'} onClick={() => { setActiveFolder('all'); if (activeNoteId === '__welcome__') setActiveNote(null) }} />
           <NavItem icon={<Star size={14} />} label="收藏" count={notes.filter(n => n.starred).length} active={activeFolderId === 'starred'} onClick={() => { setActiveFolder('starred'); if (activeNoteId === '__welcome__') setActiveNote(null) }} />
+          <NavItem
+            icon={<Trash2 size={14} />}
+            label="回收站"
+            count={trashNotes().length || undefined}
+            active={activeFolderId === 'trash'}
+            onClick={() => { setActiveFolder('trash'); if (activeNoteId === '__welcome__') setActiveNote(null) }}
+          />
         </nav>
 
         {/* Folders section */}
@@ -264,6 +273,10 @@ export function Sidebar() {
 
         {/* Note list */}
         <div className="flex-1 overflow-y-auto mt-2" style={{ borderTop: '1px solid var(--border)' }}>
+          {activeFolderId === 'trash' ? (
+            <TrashView />
+          ) : (
+          <>
           <div className="px-3 py-2 flex items-center justify-between sticky top-0 z-10" style={{ background: 'var(--bg-subtle)' }}>
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
@@ -343,9 +356,9 @@ export function Sidebar() {
               />
             ))}
           </div>
+          </>
+          )}
         </div>
-
-        {/* Context menu */}
         {contextMenu && (          <div
             className="fixed z-50 rounded-lg py-1 shadow-xl"
             style={{ top: contextMenu.y, left: contextMenu.x, background: 'var(--bg)', border: '1px solid var(--border)', minWidth: 160 }}
@@ -436,8 +449,8 @@ export function Sidebar() {
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', width: 320 }}
             onClick={e => e.stopPropagation()}
           >
-            <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>确认删除笔记？</p>
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>此操作无法撤销。</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>将笔记移入回收站？</p>
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>笔记将在 30 天后永久删除，期间可随时恢复。</p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteConfirm(null)}
@@ -450,7 +463,7 @@ export function Sidebar() {
                 onClick={async () => { await deleteNote(deleteConfirm); setDeleteConfirm(null) }}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium"
                 style={{ background: '#ef4444', color: '#fff' }}
-              >删除</button>
+              >移入回收站</button>
             </div>
           </div>
         </div>

@@ -82,6 +82,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdAt: now,
       updatedAt: now,
       wordCount: 0,
+      deletedAt: null,
     }
     await db.notes.add(note)
     set(s => ({ notes: [note, ...s.notes], activeNoteId: id, _notesVersion: s._notesVersion + 1, _filteredCache: null }))

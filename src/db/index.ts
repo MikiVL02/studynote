@@ -10,6 +10,7 @@ export interface Note {
   createdAt: number
   updatedAt: number
   wordCount: number
+  deletedAt: number | null
 }
 
 export interface Folder {
@@ -37,6 +38,17 @@ class NotesDB extends Dexie {
       notes: 'id, folderId, starred, updatedAt, createdAt, *tags',
       folders: 'id, parentId, order',
       tags: 'id, name',
+    })
+    this.version(2).stores({
+      notes: 'id, folderId, starred, updatedAt, createdAt, deletedAt, *tags',
+      folders: 'id, parentId, order',
+      tags: 'id, name',
+    }).upgrade(tx => {
+      return tx.table('notes').toCollection().modify(note => {
+        if (note.deletedAt === undefined) {
+          note.deletedAt = null
+        }
+      })
     })
   }
 }
@@ -86,6 +98,7 @@ async function _doSeed() {
       createdAt: now - 86400000,
       updatedAt: now - 3600000,
       wordCount: 30,
+      deletedAt: null,
     },
     {
       id: crypto.randomUUID(),
@@ -104,6 +117,7 @@ async function _doSeed() {
       createdAt: now - 172800000,
       updatedAt: now - 172800000,
       wordCount: 45,
+      deletedAt: null,
     },
   ])
 }

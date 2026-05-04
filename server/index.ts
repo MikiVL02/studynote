@@ -5,6 +5,11 @@ import { cors } from 'hono/cors'
 import Anthropic from '@anthropic-ai/sdk'
 import fs from 'node:fs'
 import path from 'node:path'
+import { initDb } from './db'
+import { authRouter } from './routes/auth'
+import { notesRouter } from './routes/notes'
+import { foldersRouter } from './routes/folders'
+import { commentsRouter } from './routes/comments'
 
 const app = new Hono()
 app.use('*', cors())
@@ -58,6 +63,11 @@ function getActiveModel(): string {
 }
 
 // ── Model CRUD endpoints ──────────────────────────────────────────────────────
+app.route('/api/auth', authRouter)
+app.route('/api/notes', notesRouter)
+app.route('/api/folders', foldersRouter)
+app.route('/api/comments', commentsRouter)
+
 app.get('/api/models', (c) => {
   const models = readModels()
   // strip apiKey from response for security
@@ -190,6 +200,8 @@ app.post('/api/ai/stream', async (c) => {
     }
   )
 })
+
+initDb()
 
 serve({ fetch: app.fetch, port: 3001 }, () => {
   console.log('AI proxy server running on http://localhost:3001')

@@ -44,6 +44,7 @@ export function Sidebar() {
     y: number
   } | null>(null)
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -332,7 +333,7 @@ export function Sidebar() {
                   if (e.key === 'Escape') setEditingNoteId(null)
                 }}
                 onClick={() => setActiveNote(note.id)}
-                onDelete={() => deleteNote(note.id)}
+                onDelete={() => setDeleteConfirm(note.id)}
                 onToggleStar={() => toggleStar(note.id)}
                 onTagClick={(tag) => setActiveTag(activeTag === tag ? null : tag)}
                 onContextMenu={(e) => {
@@ -367,7 +368,7 @@ export function Sidebar() {
                   if (n) { setNoteEditValue(n.title); setEditingNoteId(contextMenu.id) }
                   setContextMenu(null)
                 }} />
-                <CtxItem icon={<Trash2 size={13} />} label="删除笔记" danger onClick={async () => { await deleteNote(contextMenu.id); setContextMenu(null) }} />
+                <CtxItem icon={<Trash2 size={13} />} label="删除笔记" danger onClick={() => { setDeleteConfirm(contextMenu.id); setContextMenu(null) }} />
               </>
             )}
           </div>
@@ -424,6 +425,36 @@ export function Sidebar() {
           </div>
         )}
       </DragOverlay>
+      {deleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setDeleteConfirm(null)}
+        >
+          <div
+            className="rounded-2xl shadow-2xl p-5 flex flex-col gap-4"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', width: 320 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>确认删除笔记？</p>
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>此操作无法撤销。</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="px-3 py-1.5 rounded-lg text-sm"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-muted)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >取消</button>
+              <button
+                onClick={async () => { await deleteNote(deleteConfirm); setDeleteConfirm(null) }}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium"
+                style={{ background: '#ef4444', color: '#fff' }}
+              >删除</button>
+            </div>
+          </div>
+        </div>
+      )}
     </DndContext>
   )
 }

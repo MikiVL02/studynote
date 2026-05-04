@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Send, Sparkles, Square, FileText, GripHorizontal } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import { useAppStore } from '../../stores/appStore'
 import { streamAI } from '../../lib/ai'
 import { extractTextFromJSON } from '../../lib/utils'
@@ -233,7 +234,7 @@ export function AiPanel() {
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
-              className="max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words"
+              className="max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed break-words"
               style={{
                 background: msg.role === 'user' ? 'var(--accent)' : 'var(--bg-muted)',
                 color: msg.role === 'user' ? '#fff' : 'var(--text)',
@@ -241,7 +242,20 @@ export function AiPanel() {
                 borderBottomLeftRadius: msg.role === 'assistant' ? 4 : undefined,
               }}
             >
-              {msg.content}
+              {msg.role === 'assistant' ? (
+                <div className="prose prose-sm max-w-none">
+                  <ReactMarkdown
+                    components={{
+                      p: ({children}) => <p className="mb-1 last:mb-0">{children}</p>,
+                      ul: ({children}) => <ul className="list-disc pl-4 mb-1">{children}</ul>,
+                      ol: ({children}) => <ol className="list-decimal pl-4 mb-1">{children}</ol>,
+                      li: ({children}) => <li className="mb-0.5">{children}</li>,
+                      code: ({children}) => <code className="px-1 rounded text-xs" style={{background:'var(--bg-muted)'}}>{children}</code>,
+                      strong: ({children}) => <strong style={{color:'var(--text)'}}>{children}</strong>,
+                    }}
+                  >{msg.content}</ReactMarkdown>
+                </div>
+              ) : msg.content}
               {streaming && i === messages.length - 1 && msg.role === 'assistant' && (
                 <span className="ai-cursor" />
               )}

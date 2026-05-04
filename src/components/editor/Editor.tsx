@@ -345,7 +345,7 @@ export function Editor() {
     return <WelcomeView />
   }
 
-  const readingTime = Math.max(1, Math.ceil(wordCount / 250))
+  const readingTime = wordCount > 0 ? Math.max(1, Math.ceil(wordCount / 250)) : 0
 
   return (
     <div className="flex-1 flex flex-col min-w-0 h-full" style={{ background: 'var(--bg)' }}>
@@ -488,7 +488,7 @@ export function Editor() {
         className="flex items-center justify-between px-12 py-2 text-xs shrink-0"
         style={{ borderTop: '1px solid var(--border)', color: 'var(--text-faint)', background: 'var(--bg)' }}
       >
-        <span>{wordCount} 字 · 约 {readingTime} 分钟阅读</span>
+        <span>{wordCount} 字{wordCount > 0 ? ` · 约 ${readingTime} 分钟阅读` : ''}</span>
         <span style={{ color: saveStatus === 'saved' ? 'var(--text-faint)' : 'var(--accent)' }}>
           {saveStatus === 'saving' ? '保存中…' : saveStatus === 'unsaved' ? '未保存' : '已自动保存'}
         </span>

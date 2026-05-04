@@ -18,6 +18,7 @@ export function ModelSettingsModal({ onClose }: { onClose: () => void }) {
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showKey, setShowKey] = useState(false)
 
   const fetchModels = async () => {
     try {
@@ -188,16 +189,40 @@ export function ModelSettingsModal({ onClose }: { onClose: () => void }) {
               ].map(f => (
                 <div key={f.key}>
                   <label className="text-xs" style={{ color: 'var(--text-faint)' }}>{f.label}</label>
-                  <input
-                    type={f.key === 'apiKey' ? 'password' : 'text'}
-                    value={form[f.key as keyof typeof form]}
-                    onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                    placeholder={f.placeholder}
-                    className="w-full mt-0.5 px-3 py-1.5 rounded-lg text-sm outline-none"
-                    style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--text)' }}
-                    onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                    onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-                  />
+                  {f.key === 'apiKey' ? (
+                    <div className="relative">
+                      <input
+                        type={showKey ? 'text' : 'password'}
+                        autoComplete="off"
+                        value={form.apiKey}
+                        onChange={e => setForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                        placeholder={f.placeholder}
+                        className="w-full mt-0.5 px-3 py-1.5 rounded-lg text-sm outline-none pr-12"
+                        style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                        onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                        onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowKey(v => !v)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs"
+                        style={{ color: 'var(--text-faint)' }}
+                      >
+                        {showKey ? '隐藏' : '显示'}
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={form[f.key as keyof typeof form]}
+                      onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                      className="w-full mt-0.5 px-3 py-1.5 rounded-lg text-sm outline-none"
+                      style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                      onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                      onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                    />
+                  )}
                 </div>
               ))}
               {formError && <p className="text-xs" style={{ color: '#ef4444' }}>{formError}</p>}

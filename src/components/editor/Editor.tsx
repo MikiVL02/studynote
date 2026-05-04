@@ -398,7 +398,7 @@ export function Editor() {
           </div>
           <button
             onClick={toggleFocusMode}
-            title={focusMode ? '退出专注模式' : '专注模式 (⌘\\)'}
+            title={focusMode ? '退出专注模式 (Esc 或 ⌘\\)' : '专注模式 (⌘\\)'}
             className="toolbar-btn shrink-0 mt-2"
           >
             {focusMode

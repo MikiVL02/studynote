@@ -49,7 +49,7 @@ const SLASH_ITEMS = [
     const url = window.prompt('图片地址（URL）')
     if (url) e?.chain().focus().setImage({ src: url }).run()
   }},
-  { label: '分割线', desc: '水平线', icon: <Minus size={14} />, action: (e: ReturnType<typeof useEditor>) => e?.chain().focus().setHorizontalRule().run() },
+  { label: '分割线', desc: '插入水平分割线', icon: <Minus size={14} />, action: (e: ReturnType<typeof useEditor>) => e?.chain().focus().setHorizontalRule().run() },
   { label: '表格', desc: '插入表格', icon: <TableIcon size={14} />, action: (e: ReturnType<typeof useEditor>) => e?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
 ]
 

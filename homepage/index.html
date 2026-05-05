@@ -1,371 +1,624 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="MikiVL — 独立开发者，专注构建 AI 驱动的生产力工具" />
-  <title>MikiVL — 开发项目</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="description" content="MikiVL 的小世界 — 独立开发者，专注构建 AI 驱动的生产力工具"/>
+<title>MikiVL 的小世界</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #06080f;
+  --border: rgba(255,255,255,0.06);
+  --text: #d4d8e8;
+  --muted: #5a6480;
+  --faint: #2a3050;
+  --accent: #7c83ff;
+  --accent2: #4af0b0;
+}
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+#starfield { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+#wrapper { position: relative; z-index: 1; display: flex; min-height: 100vh; }
 
-    :root {
-      --bg:        #0d0d11;
-      --bg-card:   #13131a;
-      --bg-hover:  #1a1a24;
-      --border:    #22222e;
-      --text:      #e2e2ec;
-      --muted:     #7070a0;
-      --faint:     #3a3a55;
-      --accent:    #818cf8;
-      --accent2:   #34d399;
-      --tag-bg:    #1e1b4b;
-      --tag-text:  #a5b4fc;
-    }
+/* ── 侧边栏 ── */
+#sidebar {
+  width: 220px; flex-shrink: 0;
+  position: fixed; top: 0; left: 0; bottom: 0;
+  background: rgba(8,11,20,0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 2.5rem 1.5rem; z-index: 10;
+}
+.site-title {
+  font-size: 1.05rem; font-weight: 800; color: var(--text);
+  letter-spacing: -0.03em; margin-bottom: 0.25rem; text-decoration: none;
+}
+.site-title em { color: var(--accent); font-style: normal; }
+.site-desc { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 2.5rem; }
+.sidebar-constellation { width: 100%; height: 80px; margin-bottom: 2rem; }
+.sidebar-constellation canvas { width: 100%; height: 100%; }
+nav ul { list-style: none; }
+nav ul li { margin-bottom: 0.1rem; }
+nav ul li a {
+  display: block; padding: 0.4rem 0.6rem;
+  color: var(--muted); text-decoration: none;
+  font-size: 0.82rem; border-radius: 4px;
+  transition: all 0.15s; position: relative;
+}
+nav ul li a:hover, nav ul li a.active { color: var(--text); background: rgba(124,131,255,0.08); }
+nav ul li a.active::before {
+  content: ''; position: absolute; left: 0; top: 25%; bottom: 25%;
+  width: 2px; background: var(--accent); border-radius: 1px;
+}
+.sidebar-games { margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+.sidebar-games-label { font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--faint); margin-bottom: 0.75rem; }
+.game-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.game-tag {
+  font-size: 0.65rem; padding: 0.2rem 0.5rem;
+  border-radius: 3px; border: 1px solid var(--border);
+  color: var(--muted); transition: all 0.15s; cursor: default; user-select: none;
+}
+.game-tag:hover { border-color: var(--accent); color: var(--accent); }
+.game-tag.mc  { border-color: rgba(134,197,100,0.3); color: #86c564; }
+.game-tag.oni { border-color: rgba(74,240,176,0.3);  color: #4af0b0; }
+.game-tag.er  { border-color: rgba(234,179,8,0.3);   color: #eab308; }
+.game-tag.cp  { border-color: rgba(0,255,200,0.3);   color: #00ffc8; }
+.game-tag.ak  { border-color: rgba(0,180,255,0.3);   color: #00b4ff; }
 
-    html { scroll-behavior: smooth; }
+/* ── 主内容 ── */
+#main { margin-left: 220px; flex: 1; padding: 3rem 3rem 4rem; max-width: 800px; }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
-      font-size: 14px;
-      line-height: 1.7;
-      -webkit-font-smoothing: antialiased;
-    }
+/* ── Hero ── */
+.hero { padding: 2rem 0 3rem; border-bottom: 1px solid var(--border); margin-bottom: 3rem; position: relative; }
+.hero-eyebrow {
+  font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--accent2); margin-bottom: 0.75rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.hero-eyebrow::before { content: ''; width: 20px; height: 1px; background: var(--accent2); flex-shrink: 0; }
+.hero-name { font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.05; color: var(--text); margin-bottom: 1rem; }
+.hero-name em { color: var(--accent); font-style: normal; }
+.hero-bio { font-size: 0.9rem; color: var(--muted); max-width: 480px; line-height: 1.85; font-weight: 300; margin-bottom: 1.5rem; }
+.hero-status {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-size: 0.72rem; color: var(--muted); padding: 0.3rem 0.75rem;
+  background: rgba(74,240,176,0.05); border: 1px solid rgba(74,240,176,0.15); border-radius: 20px;
+}
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); animation: pulse 2s ease-in-out infinite; flex-shrink: 0; }
+@keyframes pulse {
+  0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74,240,176,0.4); }
+  50%      { opacity: 0.7; box-shadow: 0 0 0 4px rgba(74,240,176,0); }
+}
+.hero-deco { position: absolute; right: 0; top: 2rem; display: flex; flex-direction: column; gap: 0.5rem; opacity: 0.15; pointer-events: none; }
+.hero-deco-char { font-size: 1.8rem; color: var(--accent); line-height: 1; }
 
-    /* ── Nav ── */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 clamp(1.5rem, 5vw, 4rem);
-      height: 56px;
-      background: rgba(13,13,17,0.88);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--border);
-    }
-    .nav-logo {
-      font-size: 1rem; font-weight: 700; color: var(--accent);
-      text-decoration: none; letter-spacing: -0.02em;
-    }
-    .nav-logo span { color: var(--muted); font-weight: 400; }
-    .nav-links { display: flex; gap: 2rem; list-style: none; }
-    .nav-links a {
-      color: var(--muted); text-decoration: none; font-size: 0.8rem;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      transition: color 0.15s;
-    }
-    .nav-links a:hover { color: var(--text); }
+/* ── Section 标题 ── */
+.section-label {
+  font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 1.5rem;
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.section-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
 
-    /* ── Layout ── */
-    main { max-width: 860px; margin: 0 auto; padding: 0 clamp(1.5rem, 5vw, 2rem); }
-    section { padding: 6rem 0 2rem; }
-    section:first-of-type { padding-top: 9rem; }
+/* ── Flow 时间线 ── */
+.flow-list { display: flex; flex-direction: column; }
+.flow-item {
+  display: flex; gap: 1.5rem; padding: 1.75rem 0;
+  border-bottom: 1px solid var(--border);
+  transition: transform 0.2s; cursor: default;
+}
+.flow-item:first-child { padding-top: 0; }
+.flow-item:last-child  { border-bottom: none; }
+.flow-item:hover { transform: translateX(4px); }
+.flow-item:hover .flow-title { color: var(--accent); }
+.flow-item:hover .flow-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px rgba(124,131,255,0.5); }
+.flow-timeline { width: 48px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
+.flow-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; transition: all 0.2s; }
+.flow-line { width: 1px; flex: 1; background: var(--border); margin-top: 6px; }
+.flow-item:last-child .flow-line { display: none; }
+.flow-content { flex: 1; min-width: 0; }
+.flow-meta { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.4rem; flex-wrap: wrap; }
+.flow-category { font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.15rem 0.5rem; border-radius: 3px; }
+.cat-ai   { background: rgba(124,131,255,0.1); color: var(--accent); }
+.cat-dev  { background: rgba(74,240,176,0.1);  color: var(--accent2); }
+.cat-ops  { background: rgba(0,180,255,0.1);   color: #00b4ff; }
+.cat-game { background: rgba(234,179,8,0.1);   color: #eab308; }
+.flow-date { font-size: 0.68rem; color: var(--muted); }
+.flow-title { font-size: 1rem; font-weight: 600; color: var(--text); letter-spacing: -0.02em; line-height: 1.4; margin-bottom: 0.5rem; transition: color 0.15s; }
+.flow-excerpt { font-size: 0.82rem; color: var(--muted); line-height: 1.75; font-weight: 300; }
+.flow-game-ref {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-size: 0.65rem; color: var(--faint); margin-top: 0.6rem;
+  padding: 0.2rem 0.5rem; border: 1px solid var(--border); border-radius: 3px;
+}
+.flow-game-ref span { color: var(--muted); }
 
-    /* ── Section label ── */
-    .section-label {
-      font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase;
-      color: var(--accent); margin-bottom: 0.5rem;
-    }
-    h2 {
-      font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 700;
-      color: var(--text); margin-bottom: 1.75rem; letter-spacing: -0.03em;
-    }
+/* ── 项目 ── */
+.projects-section { margin-top: 3.5rem; }
+.project-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.project-card {
+  background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1.25rem 1.4rem;
+  text-decoration: none; display: block;
+  transition: all 0.2s; position: relative; overflow: hidden;
+}
+.project-card.full { grid-column: 1 / -1; }
+.project-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2)); opacity: 0; transition: opacity 0.2s;
+}
+.project-card:hover { background: rgba(124,131,255,0.04); border-color: rgba(124,131,255,0.2); transform: translateY(-2px); }
+.project-card:hover::after { opacity: 1; }
+.project-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.4rem; }
+.project-name { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+.project-status { font-size: 0.65rem; padding: 0.15rem 0.5rem; border-radius: 20px; white-space: nowrap; background: rgba(74,240,176,0.08); color: var(--accent2); border: 1px solid rgba(74,240,176,0.2); margin-top: 1px; }
+.project-desc { font-size: 0.77rem; color: var(--muted); line-height: 1.7; font-weight: 300; margin-bottom: 0.75rem; }
+.project-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.ptag { font-size: 0.62rem; padding: 0.15rem 0.4rem; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--muted); border-radius: 3px; }
+.ptag.sky    { background: rgba(8,47,73,0.6);   color: #7dd3fc; border-color: rgba(125,211,252,0.15); }
+.ptag.green  { background: rgba(5,46,22,0.6);   color: #6ee7b7; border-color: rgba(110,231,183,0.15); }
+.ptag.purple { background: rgba(46,16,101,0.6); color: #c4b5fd; border-color: rgba(196,181,253,0.15); }
+.ptag.orange { background: rgba(67,20,7,0.6);   color: #fdba74; border-color: rgba(253,186,116,0.15); }
 
-    /* ── Hero ── */
-    .hero-greeting {
-      font-size: 0.85rem; color: var(--accent2); margin-bottom: 0.75rem;
-      letter-spacing: 0.08em;
-    }
-    .hero-name {
-      font-size: clamp(2.2rem, 7vw, 3.6rem); font-weight: 800;
-      color: var(--text); letter-spacing: -0.04em; line-height: 1.05;
-      margin-bottom: 1.25rem;
-    }
-    .hero-name em { color: var(--accent); font-style: normal; }
-    .hero-desc {
-      font-size: 0.95rem; color: var(--muted); max-width: 500px;
-      line-height: 1.85; margin-bottom: 2.25rem;
-      font-family: system-ui, -apple-system, sans-serif;
-    }
-    .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-    .btn {
-      display: inline-flex; align-items: center; gap: 0.45rem;
-      padding: 0.55rem 1.1rem;
-      border-radius: 6px; font-size: 0.82rem;
-      text-decoration: none; transition: all 0.15s;
-      font-family: inherit;
-    }
-    .btn-primary {
-      background: var(--accent); color: #0d0d11; border: 1px solid var(--accent);
-      font-weight: 600;
-    }
-    .btn-primary:hover { background: #a5b4fc; border-color: #a5b4fc; }
-    .btn-ghost {
-      background: transparent; color: var(--muted); border: 1px solid var(--border);
-    }
-    .btn-ghost:hover { border-color: var(--faint); color: var(--text); background: var(--bg-hover); }
+/* ── 联系 ── */
+.contact-section { margin-top: 3.5rem; }
+.contact-link {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  color: var(--muted); text-decoration: none; font-size: 0.88rem;
+  transition: color 0.15s; width: fit-content;
+}
+.contact-link:hover { color: var(--accent); }
+.contact-icon { color: var(--faint); width: 1.1rem; text-align: center; }
 
-    /* ── Divider ── */
-    .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+/* ── 评论区 ── */
+.comments-section { margin-left: 220px; padding: 2.5rem 3rem; border-top: 1px solid var(--border); }
+@media (max-width: 768px) { .comments-section { margin-left: 0; padding: 2rem 1.25rem; } }
+.comment-item { padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+.comment-item:last-child { border-bottom: none; }
+.comment-avatar {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.65rem; font-weight: 700; flex-shrink: 0;
+}
 
-    /* ── Projects ── */
-    .projects-grid { display: grid; gap: 1rem; }
-    .project-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.5rem 1.6rem;
-      text-decoration: none;
-      display: block;
-      transition: border-color 0.15s, background 0.15s, transform 0.18s;
-      position: relative; overflow: hidden;
-    }
-    .project-card::before {
-      content: '';
-      position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      opacity: 0; transition: opacity 0.2s;
-    }
-    .project-card:hover {
-      border-color: var(--faint);
-      background: var(--bg-hover);
-      transform: translateY(-2px);
-    }
-    .project-card:hover::before { opacity: 1; }
-    .project-header {
-      display: flex; align-items: flex-start;
-      justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem;
-    }
-    .project-name {
-      font-size: 1rem; font-weight: 700; color: var(--text);
-      letter-spacing: -0.02em;
-    }
-    .project-status {
-      font-size: 0.7rem; padding: 0.15rem 0.5rem;
-      border-radius: 20px; letter-spacing: 0.05em;
-      background: #052e16; color: #6ee7b7;
-      white-space: nowrap; margin-top: 2px;
-    }
-    .project-desc {
-      font-size: 0.85rem; color: var(--muted); line-height: 1.75;
-      font-family: system-ui, -apple-system, sans-serif;
-      margin-bottom: 1.1rem;
-    }
-    .project-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-    .tag {
-      font-size: 0.7rem; padding: 0.18rem 0.5rem;
-      background: var(--tag-bg); color: var(--tag-text);
-      border-radius: 4px; letter-spacing: 0.03em;
-    }
-    .tag.green  { background: #052e16; color: #6ee7b7; }
-    .tag.purple { background: #2e1065; color: #c4b5fd; }
-    .tag.orange { background: #431407; color: #fdba74; }
-    .tag.sky    { background: #082f49; color: #7dd3fc; }
+/* ── Footer ── */
+footer {
+  margin-left: 220px; padding: 1.5rem 3rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem; color: var(--faint);
+  display: flex; align-items: center; justify-content: space-between;
+}
+footer a { color: var(--faint); text-decoration: none; transition: color 0.15s; }
+footer a:hover { color: var(--muted); }
 
-    /* ── Skills ── */
-    .skills-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-      gap: 1rem;
-    }
-    .skill-group {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.1rem 1.2rem;
-    }
-    .skill-group-title {
-      font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase;
-      color: var(--accent); margin-bottom: 0.8rem;
-    }
-    .skill-list { list-style: none; }
-    .skill-list li {
-      font-size: 0.83rem; color: var(--muted); padding: 0.22rem 0;
-      display: flex; align-items: center; gap: 0.5rem;
-    }
-    .skill-list li::before { content: '▸'; color: var(--faint); font-size: 0.65rem; }
-
-    /* ── Contact ── */
-    .contact-links { display: flex; flex-direction: column; gap: 0.9rem; }
-    .contact-link {
-      display: inline-flex; align-items: center; gap: 0.75rem;
-      color: var(--muted); text-decoration: none; font-size: 0.88rem;
-      transition: color 0.15s; width: fit-content;
-    }
-    .contact-link:hover { color: var(--accent); }
-    .contact-icon { color: var(--faint); font-size: 1rem; width: 1.2rem; text-align: center; }
-
-    /* ── Footer ── */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 2rem clamp(1.5rem, 5vw, 4rem);
-      text-align: center;
-      color: var(--faint); font-size: 0.75rem;
-      margin-top: 4rem;
-    }
-
-    /* ── Cursor blink ── */
-    .cursor {
-      display: inline-block; width: 3px; height: 0.85em;
-      background: var(--accent); margin-left: 1px;
-      vertical-align: text-bottom; border-radius: 1px;
-      animation: blink 1.1s step-end infinite;
-    }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-
-    /* ── Responsive ── */
-    @media (max-width: 600px) {
-      .nav-links { gap: 1.2rem; }
-      .skills-grid { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 400px) {
-      .nav-links li:nth-child(3), .nav-links li:nth-child(4) { display: none; }
-    }
-  </style>
+/* ── 响应式 ── */
+@media (max-width: 768px) {
+  #sidebar { display: none; }
+  #main { margin-left: 0; padding: 2rem 1.25rem 3rem; max-width: 100%; }
+  footer { margin-left: 0; padding: 1.25rem; }
+  .project-grid { grid-template-columns: 1fr; }
+  .project-card.full { grid-column: auto; }
+}
+</style>
 </head>
 <body>
 
-<nav>
-  <a class="nav-logo" href="#about">MikiVL<span>.online</span></a>
-  <ul class="nav-links">
-    <li><a href="#about">about</a></li>
-    <li><a href="#projects">projects</a></li>
-    <li><a href="#skills">skills</a></li>
-    <li><a href="#contact">contact</a></li>
-  </ul>
-</nav>
+<canvas id="starfield"></canvas>
 
-<main>
+<div id="wrapper">
 
-  <!-- About -->
-  <section id="about">
-    <p class="hero-greeting">// hello, world</p>
-    <h1 class="hero-name">MikiVL<em>.</em><span class="cursor"></span></h1>
-    <p class="hero-desc">
-      独立开发者，专注于构建 AI 驱动的生产力工具。<br>
-      喜欢探索 AI 与实用工具的交叉地带，用代码解决真实问题。
-    </p>
-    <div class="hero-actions">
-      <a class="btn btn-primary" href="#projects">查看项目 →</a>
-      <a class="btn btn-ghost" href="#contact">联系我</a>
+  <aside id="sidebar">
+    <a class="site-title" href="/">MikiVL<em>.</em></a>
+    <div class="site-desc">独立开发者 · 游戏玩家</div>
+    <div class="sidebar-constellation">
+      <canvas id="const-canvas"></canvas>
     </div>
-  </section>
-
-  <hr class="divider" />
-
-  <!-- Projects -->
-  <section id="projects">
-    <p class="section-label">// projects</p>
-    <h2>开发项目</h2>
-    <div class="projects-grid">
-
-      <a class="project-card" href="/app/" target="_blank" rel="noopener">
-        <div class="project-header">
-          <span class="project-name">笔记</span>
-          <span class="project-status">● 上线中</span>
-        </div>
-        <p class="project-desc">
-          AI 驱动的个人笔记工具。富文本编辑器，支持 AI 续写、润色、摘要、翻译，
-          多文件夹管理，标签系统，导入导出（MD / DOCX / PDF），数据本地存储，隐私优先。
-        </p>
-        <div class="project-tags">
-          <span class="tag">React 19</span>
-          <span class="tag">TypeScript</span>
-          <span class="tag sky">Vite</span>
-          <span class="tag green">Hono</span>
-          <span class="tag purple">Claude API</span>
-          <span class="tag orange">TipTap</span>
-          <span class="tag">IndexedDB</span>
-        </div>
-      </a>
-
-      <a class="project-card" href="/sushu/" target="_blank" rel="noopener">
-        <div class="project-header">
-          <span class="project-name">素数计算器</span>
-          <span class="project-status">● 上线中</span>
-        </div>
-        <p class="project-desc">
-          在线素数计算工具。支持判断任意正整数是否为素数，以及生成指定范围内的素数列表。
-        </p>
-        <div class="project-tags">
-          <span class="tag sky">Vite</span>
-          <span class="tag">Vanilla JS</span>
-        </div>
-      </a>
-
-    </div>
-  </section>
-
-  <hr class="divider" />
-
-  <!-- Skills -->
-  <section id="skills">
-    <p class="section-label">// skills</p>
-    <h2>技术栈</h2>
-    <div class="skills-grid">
-      <div class="skill-group">
-        <p class="skill-group-title">Frontend</p>
-        <ul class="skill-list">
-          <li>React / TypeScript</li>
-          <li>Vite / TailwindCSS</li>
-          <li>TipTap / ProseMirror</li>
-          <li>Framer Motion</li>
-        </ul>
-      </div>
-      <div class="skill-group">
-        <p class="skill-group-title">Backend</p>
-        <ul class="skill-list">
-          <li>Node.js / Hono</li>
-          <li>REST / SSE</li>
-          <li>Docker / Nginx</li>
-          <li>Linux / VPS</li>
-        </ul>
-      </div>
-      <div class="skill-group">
-        <p class="skill-group-title">AI</p>
-        <ul class="skill-list">
-          <li>Anthropic Claude API</li>
-          <li>Prompt Engineering</li>
-          <li>Streaming (SSE)</li>
-          <li>RAG / Embeddings</li>
-        </ul>
-      </div>
-      <div class="skill-group">
-        <p class="skill-group-title">Tooling</p>
-        <ul class="skill-list">
-          <li>Git / GitHub</li>
-          <li>Vitest / ESLint</li>
-          <li>Claude Code</li>
-          <li>SSH / rsync</li>
-        </ul>
+    <nav>
+      <ul>
+        <li><a href="#about" class="active">首页</a></li>
+        <li><a href="#updates">动态</a></li>
+        <li><a href="#projects">项目</a></li>
+        <li><a href="#contact">联系</a></li>
+      </ul>
+    </nav>
+    <div class="sidebar-games">
+      <div class="sidebar-games-label">正在游玩</div>
+      <div class="game-tags">
+        <span class="game-tag mc">⛏ MC</span>
+        <span class="game-tag oni">⚗ ONI</span>
+        <span class="game-tag er">⚔ ER</span>
+        <span class="game-tag cp">◈ CP77</span>
+        <span class="game-tag ak">▣ AK</span>
       </div>
     </div>
-  </section>
+  </aside>
 
-  <hr class="divider" />
+  <main id="main">
 
-  <!-- Contact -->
-  <section id="contact">
-    <p class="section-label">// contact</p>
-    <h2>联系方式</h2>
-    <div class="contact-links">
-      <a class="contact-link" href="https://github.com/MikiVL" target="_blank" rel="noopener">
-        <span class="contact-icon">⌥</span>
-        github.com/MikiVL
-      </a>
-      <a class="contact-link" href="mailto:hi@mikivl.online">
-        <span class="contact-icon">@</span>
-        hi@mikivl.online
-      </a>
+    <section class="hero" id="about">
+      <div class="hero-deco" aria-hidden="true">
+        <span class="hero-deco-char">✦</span>
+        <span class="hero-deco-char">᚛</span>
+        <span class="hero-deco-char">⚔</span>
+      </div>
+      <div class="hero-eyebrow">独立开发者 · AI 工具构建者</div>
+      <h1 class="hero-name">MikiVL<em>.</em></h1>
+      <p class="hero-bio">
+        专注于构建 AI 驱动的生产力工具。<br>
+        探索代码与星空之间的可能性，用像素砌出真实的解决方案。
+      </p>
+      <div class="hero-status">
+        <span class="status-dot"></span>
+        当前在线 · 持续迭代中
+      </div>
+    </section>
+
+    <section id="updates">
+      <div class="section-label">// 最近动态</div>
+      <div class="flow-list">
+
+        <div class="flow-item">
+          <div class="flow-timeline"><div class="flow-dot"></div><div class="flow-line"></div></div>
+          <div class="flow-content">
+            <div class="flow-meta">
+              <span class="flow-category cat-dev">新项目</span>
+              <span class="flow-date">2026年5月</span>
+            </div>
+            <div class="flow-title">GitHub Trending 追踪器上线</div>
+            <div class="flow-excerpt">自动抓取 GitHub 每日热门仓库，支持按时间筛选与收藏，7 天自动清理，保持列表干净。Cheerio 爬取、SQLite 持久化、Express 提供 API。</div>
+            <div class="flow-game-ref">⚗ <span>像缺氧里建自动化流水线，数据进来就会自己跑</span></div>
+          </div>
+        </div>
+
+        <div class="flow-item">
+          <div class="flow-timeline"><div class="flow-dot"></div><div class="flow-line"></div></div>
+          <div class="flow-content">
+            <div class="flow-meta">
+              <span class="flow-category cat-ai">AI 工具</span>
+              <span class="flow-date">2026年4月</span>
+            </div>
+            <div class="flow-title">笔记 v2.0 — 重构编辑器，引入 TipTap</div>
+            <div class="flow-excerpt">全面迁移至 TipTap + ProseMirror。支持 AI 续写、润色、摘要、翻译，多文件夹管理，标签系统，导入导出 MD / DOCX / PDF，IndexedDB 本地存储，隐私优先。</div>
+            <div class="flow-game-ref">⛏ <span>像在我的世界里一层一层往下挖，终于找到了钻石层</span></div>
+          </div>
+        </div>
+
+        <div class="flow-item">
+          <div class="flow-timeline"><div class="flow-dot"></div><div class="flow-line"></div></div>
+          <div class="flow-content">
+            <div class="flow-meta">
+              <span class="flow-category cat-ops">运维</span>
+              <span class="flow-date">2026年3月</span>
+            </div>
+            <div class="flow-title">迁移到 Caddy + PM2，重建部署流水线</div>
+            <div class="flow-excerpt">抛弃 Nginx 配置地狱，拥抱 Caddy 自动 HTTPS。PM2 管理 Hono 后端进程，rsync 增量同步，整套流程一条命令跑通。</div>
+            <div class="flow-game-ref">▣ <span>罗德岛的后勤系统——每个节点都要保持在线</span></div>
+          </div>
+        </div>
+
+        <div class="flow-item">
+          <div class="flow-timeline"><div class="flow-dot"></div><div class="flow-line"></div></div>
+          <div class="flow-content">
+            <div class="flow-meta">
+              <span class="flow-category cat-game">游戏 · 随想</span>
+              <span class="flow-date">2026年2月</span>
+            </div>
+            <div class="flow-title">艾尔登法环与软件架构——褪色者的地图思维</div>
+            <div class="flow-excerpt">开放世界设计与模块化系统有什么共同点？在交界地迷路，和在遗留代码里迷路，感受惊人地相似。</div>
+            <div class="flow-game-ref">⚔ <span>黄金树的光芒照不到的地方，才是真正有趣的地方</span></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="projects-section" id="projects">
+      <div class="section-label">// 项目</div>
+      <div class="project-grid">
+
+        <a class="project-card" href="/app/" target="_blank" rel="noopener">
+          <div class="project-header">
+            <span class="project-name">笔记</span>
+            <span class="project-status">● 上线中</span>
+          </div>
+          <p class="project-desc">AI 驱动的个人笔记工具。富文本编辑器，支持 AI 续写、润色、摘要、翻译，多文件夹管理，标签系统，导入导出（MD / DOCX / PDF），数据本地存储，隐私优先。</p>
+          <div class="project-tags">
+            <span class="ptag">React 19</span>
+            <span class="ptag">TypeScript</span>
+            <span class="ptag sky">Vite</span>
+            <span class="ptag green">Hono</span>
+            <span class="ptag purple">Claude API</span>
+            <span class="ptag orange">TipTap</span>
+            <span class="ptag">IndexedDB</span>
+          </div>
+        </a>
+
+        <a class="project-card" href="/sushu/" target="_blank" rel="noopener">
+          <div class="project-header">
+            <span class="project-name">素数计算器</span>
+            <span class="project-status">● 上线中</span>
+          </div>
+          <p class="project-desc">在线素数计算工具。支持判断任意正整数是否为素数，以及生成指定范围内的素数列表。</p>
+          <div class="project-tags">
+            <span class="ptag sky">Vite</span>
+            <span class="ptag">Vanilla JS</span>
+          </div>
+        </a>
+
+        <a class="project-card full" href="/github/" target="_blank" rel="noopener">
+          <div class="project-header">
+            <span class="project-name">GitHub Trending</span>
+            <span class="project-status">● 上线中</span>
+          </div>
+          <p class="project-desc">GitHub 热门仓库追踪器。自动抓取每日 Trending 数据，支持按时间筛选、收藏，7 天内自动清理未收藏条目，保持列表简洁。</p>
+          <div class="project-tags">
+            <span class="ptag">React</span>
+            <span class="ptag sky">Vite</span>
+            <span class="ptag green">Express</span>
+            <span class="ptag orange">SQLite</span>
+            <span class="ptag">Cheerio</span>
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <section class="contact-section" id="contact">
+      <div class="section-label">// 联系</div>
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        <a class="contact-link" href="https://github.com/MikiVL" target="_blank" rel="noopener">
+          <span class="contact-icon">⌥</span>github.com/MikiVL
+        </a>
+        <a class="contact-link" href="mailto:hi@mikivl.online">
+          <span class="contact-icon">@</span>hi@mikivl.online
+        </a>
+        <a class="contact-link" href="mailto:2569798878@qq.com">
+          <span class="contact-icon">✉</span>2569798878@qq.com
+        </a>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- 评论区 -->
+<section class="comments-section" id="comments">
+  <div class="section-label">// 留言</div>
+
+  <div id="comment-form-area" style="margin-bottom:1.5rem;">
+    <div id="comment-login-hint" style="font-size:0.78rem;color:var(--muted);">
+      <a href="javascript:void(0)" onclick="openLoginModal()" style="color:var(--accent);text-decoration:none;">登录</a> 后发表留言
     </div>
-  </section>
+    <form id="comment-form" style="display:none;flex-direction:column;gap:0.75rem;">
+      <textarea id="comment-input" rows="3" maxlength="500" placeholder="写点什么…（最多 500 字）"
+        style="width:100%;padding:0.6rem 0.8rem;background:rgba(255,255,255,0.03);
+               border:1px solid var(--border);border-radius:8px;color:var(--text);
+               font-size:0.82rem;font-family:inherit;resize:vertical;line-height:1.6;outline:none;"></textarea>
+      <div style="display:flex;justify-content:flex-end;">
+        <button type="submit"
+          style="padding:0.4rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:0.8rem;cursor:pointer;">
+          发表
+        </button>
+      </div>
+    </form>
+  </div>
 
-</main>
+  <div id="comments-list" style="display:flex;flex-direction:column;"></div>
+</section>
+
+<!-- 登录弹窗（首页专用） -->
+<div id="hp-login-modal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:1.5rem;width:300px;display:flex;flex-direction:column;gap:1rem;">
+    <h3 style="font-size:0.9rem;font-weight:600;color:var(--text);margin:0;">登录 / 注册</h3>
+    <div style="display:flex;gap:0.5rem;padding:0.25rem;background:rgba(255,255,255,0.04);border-radius:8px;">
+      <button id="hp-tab-login" onclick="hpSetTab('login')"
+        style="flex:1;padding:0.3rem;border:none;border-radius:6px;font-size:0.75rem;background:rgba(255,255,255,0.08);color:var(--text);cursor:pointer;">登录</button>
+      <button id="hp-tab-register" onclick="hpSetTab('register')"
+        style="flex:1;padding:0.3rem;border:none;border-radius:6px;font-size:0.75rem;background:transparent;color:var(--muted);cursor:pointer;">注册</button>
+    </div>
+    <input id="hp-username" type="text" placeholder="用户名"
+      style="padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.82rem;outline:none;"/>
+    <input id="hp-password" type="password" placeholder="密码"
+      style="padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.82rem;outline:none;"/>
+    <p id="hp-login-error" style="color:#ef4444;font-size:0.75rem;display:none;margin:0;"></p>
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+      <button onclick="closeLoginModal()"
+        style="padding:0.4rem 0.8rem;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:0.8rem;cursor:pointer;">取消</button>
+      <button id="hp-login-submit" onclick="hpSubmit()"
+        style="padding:0.4rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:0.8rem;cursor:pointer;">登录</button>
+    </div>
+  </div>
+</div>
 
 <footer>
-  <p>© 2026 MikiVL · built with ♥ and <a href="https://claude.ai/code" style="color:var(--faint);text-decoration:none;" target="_blank">Claude Code</a></p>
+  <span>© 2026 MikiVL</span>
+  <span>✦ built with <a href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code</a></span>
 </footer>
 
+<script>
+(function () {
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  let stars = [], W, H;
+  function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  function initStars() {
+    stars = [];
+    const n = Math.floor((W * H) / 4000);
+    for (let i = 0; i < n; i++) stars.push({ x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.2+0.2, o: Math.random()*0.6+0.2, spd: Math.random()*0.3+0.05, ph: Math.random()*Math.PI*2 });
+  }
+  let t = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    t += 0.008;
+    for (const s of stars) {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${s.o*(0.7+0.3*Math.sin(t*s.spd+s.ph))})`;
+      ctx.fill();
+    }
+    if (Math.random() < 0.002) {
+      const mx = Math.random()*W, my = Math.random()*H*0.5, len = 40+Math.random()*60;
+      const g = ctx.createLinearGradient(mx,my,mx+len,my+len*0.4);
+      g.addColorStop(0,'rgba(255,255,255,0)'); g.addColorStop(0.4,'rgba(200,210,255,0.45)'); g.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(mx+len,my+len*0.4);
+      ctx.strokeStyle=g; ctx.lineWidth=1; ctx.stroke();
+    }
+    requestAnimationFrame(draw);
+  }
+  resize(); initStars(); draw();
+  window.addEventListener('resize', () => { resize(); initStars(); });
+})();
+
+(function () {
+  const canvas = document.getElementById('const-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  // 摩羯座主星坐标（按真实星图比例归一化）
+  // 0:α²Cap(Algedi) 1:β Cap(Dabih) 2:ψCap 3:ωCap 4:24Cap
+  // 5:δCap(Deneb Algedi) 6:γCap(Nashira) 7:ιCap 8:θCap 9:ζCap 10:εCap 11:ηCap 12:ρCap
+  const rawPts = [
+    [0.08,0.22],[0.18,0.28],[0.30,0.18],[0.42,0.14],[0.52,0.20],
+    [0.92,0.55],[0.82,0.48],[0.68,0.70],[0.58,0.78],[0.72,0.38],
+    [0.62,0.32],[0.50,0.58],[0.38,0.64]
+  ];
+  const sizes = [2.2,1.8,1.2,1.0,1.0, 2.4,1.4,1.0,0.9,1.1,0.9,0.9,0.8];
+  const pts = rawPts.map(([rx,ry],i) => ({
+    x: rx*W, y: ry*H,
+    r: sizes[i] * dpr,
+    o: 0.55 + sizes[i] * 0.12
+  }));
+  // 连线：摩羯座的弓形轮廓
+  const lines = [
+    [0,1],[1,2],[2,3],[3,4],[4,9],   // 上弧（头部 → 背部）
+    [9,10],[10,5],                    // 背部 → 尾部
+    [5,6],[6,7],[7,8],[8,12],[12,11], // 腹部弧线
+    [11,1]                            // 闭合（腹 → 头）
+  ];
+  ctx.strokeStyle = 'rgba(124,131,255,0.15)'; ctx.lineWidth = dpr;
+  for (const [a,b] of lines) { ctx.beginPath(); ctx.moveTo(pts[a].x,pts[a].y); ctx.lineTo(pts[b].x,pts[b].y); ctx.stroke(); }
+  for (const p of pts) { ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle=`rgba(200,210,255,${p.o})`; ctx.fill(); }
+})();
+
+(function () {
+  const sections = document.querySelectorAll('section[id]');
+  const links = document.querySelectorAll('nav a');
+  const obs = new IntersectionObserver(entries => {
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = document.querySelector(`nav a[href="#${e.target.id}"]`);
+        if (a) a.classList.add('active');
+      }
+    }
+  }, { threshold: 0.4 });
+  sections.forEach(s => obs.observe(s));
+})();
+
+// ── 评论系统 ──
+const HP_TOKEN_KEY = 'mikivl_token'
+let hpUser = null
+let hpTab = 'login'
+
+function hpGetToken() { return localStorage.getItem(HP_TOKEN_KEY) }
+function hpSetToken(t) { localStorage.setItem(HP_TOKEN_KEY, t) }
+
+function hpParseToken(token) {
+  try { const p = JSON.parse(atob(token.split('.')[1])); return { id: p.userId, username: p.username } }
+  catch { return null }
+}
+
+function hpSetTab(tab) {
+  hpTab = tab
+  document.getElementById('hp-tab-login').style.background = tab === 'login' ? 'rgba(255,255,255,0.08)' : 'transparent'
+  document.getElementById('hp-tab-login').style.color = tab === 'login' ? 'var(--text)' : 'var(--muted)'
+  document.getElementById('hp-tab-register').style.background = tab === 'register' ? 'rgba(255,255,255,0.08)' : 'transparent'
+  document.getElementById('hp-tab-register').style.color = tab === 'register' ? 'var(--text)' : 'var(--muted)'
+  document.getElementById('hp-login-submit').textContent = tab === 'login' ? '登录' : '注册'
+}
+
+function openLoginModal() { document.getElementById('hp-login-modal').style.display = 'flex' }
+function closeLoginModal() { document.getElementById('hp-login-modal').style.display = 'none' }
+
+async function hpSubmit() {
+  const username = document.getElementById('hp-username').value.trim()
+  const password = document.getElementById('hp-password').value
+  const errEl = document.getElementById('hp-login-error')
+  errEl.style.display = 'none'
+  if (!username || !password) { errEl.textContent = '请填写用户名和密码'; errEl.style.display = 'block'; return }
+  try {
+    const endpoint = hpTab === 'login' ? '/api/auth/login' : '/api/auth/register'
+    const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) })
+    const data = await res.json()
+    if (!res.ok) { errEl.textContent = data.error || '操作失败'; errEl.style.display = 'block'; return }
+    hpSetToken(data.token)
+    hpUser = data.user
+    closeLoginModal()
+    updateCommentUI()
+  } catch { errEl.textContent = '网络错误'; errEl.style.display = 'block' }
+}
+
+function updateCommentUI() {
+  const hint = document.getElementById('comment-login-hint')
+  const form = document.getElementById('comment-form')
+  if (hpUser) { hint.style.display = 'none'; form.style.display = 'flex' }
+  else { hint.style.display = 'block'; form.style.display = 'none' }
+}
+
+async function loadComments() {
+  try {
+    const res = await fetch('/api/comments')
+    const list = await res.json()
+    const el = document.getElementById('comments-list')
+    if (!Array.isArray(list) || !list.length) {
+      el.innerHTML = '<p style="font-size:0.78rem;color:var(--muted);padding:0.5rem 0;">还没有留言，来第一个吧！</p>'
+      return
+    }
+    el.innerHTML = list.map(c => `
+      <div class="comment-item">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;">
+          <span class="comment-avatar">${c.username[0].toUpperCase()}</span>
+          <span style="font-size:0.78rem;font-weight:600;color:var(--text);">${c.username}</span>
+          <span style="font-size:0.68rem;color:var(--muted);">${new Date(c.createdAt).toLocaleDateString('zh-CN')}</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--muted);line-height:1.7;margin:0 0 0 1.6rem;">${c.content.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</p>
+      </div>
+    `).join('')
+  } catch {}
+}
+
+document.getElementById('comment-form').addEventListener('submit', async e => {
+  e.preventDefault()
+  const input = document.getElementById('comment-input')
+  const content = input.value.trim()
+  if (!content) return
+  try {
+    const res = await fetch('/api/comments', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${hpGetToken()}` }, body: JSON.stringify({ content }) })
+    if (res.ok) { input.value = ''; loadComments() }
+    else if (res.status === 401) { hpUser = null; updateCommentUI() }
+  } catch {}
+})
+
+const _token = hpGetToken()
+if (_token) hpUser = hpParseToken(_token)
+updateCommentUI()
+loadComments()
+</script>
 </body>
 </html>

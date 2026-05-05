@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { User, LogOut, Cloud, Key } from 'lucide-react'
+import { User, Cloud, Key } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { LoginModal } from './LoginModal'
+import { ProfileModal } from './ProfileModal'
 
 export function UserMenu() {
-  const { currentUser, logout, syncStatus, syncFromCloud } = useAppStore()
+  const { currentUser, syncStatus, syncFromCloud } = useAppStore()
   const [showLogin, setShowLogin] = useState(false)
-  const [showActivate, setShowActivate] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
 
   if (!currentUser) {
     return (
@@ -26,32 +27,32 @@ export function UserMenu() {
     )
   }
 
+  const displayName = currentUser.nickname || currentUser.username
+
   return (
     <>
       <div className="px-3 py-2 flex flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{ background: 'var(--accent)', color: '#fff' }}
-            >
-              {currentUser.username[0].toUpperCase()}
-            </div>
-            <span className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
-              {currentUser.username}
-            </span>
-          </div>
-          <button
-            onClick={logout}
-            title="登出"
-            className="p-1 rounded flex-shrink-0"
-            style={{ color: 'var(--text-faint)' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}
+        <button
+          onClick={() => setShowProfile(true)}
+          className="flex items-center gap-2 w-full text-left rounded-lg transition-all"
+          style={{ background: 'transparent' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-muted)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden"
+            style={{ background: 'var(--accent)', color: '#fff' }}
           >
-            <LogOut size={12} />
-          </button>
-        </div>
+            {currentUser.avatar ? (
+              <img src={currentUser.avatar} alt="头像" className="w-full h-full object-cover" />
+            ) : (
+              displayName[0]?.toUpperCase()
+            )}
+          </div>
+          <span className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
+            {displayName}
+          </span>
+        </button>
 
         {currentUser.cloudEnabled ? (
           <button
@@ -65,7 +66,7 @@ export function UserMenu() {
           </button>
         ) : (
           <button
-            onClick={() => setShowActivate(true)}
+            onClick={() => setShowProfile(true)}
             className="flex items-center gap-1.5 text-xs"
             style={{ color: 'var(--text-faint)' }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
@@ -77,9 +78,7 @@ export function UserMenu() {
         )}
       </div>
 
-      {showActivate && (
-        <LoginModal initialTab="activate" onClose={() => setShowActivate(false)} />
-      )}
+      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
     </>
   )
 }

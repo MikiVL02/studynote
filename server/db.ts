@@ -14,11 +14,19 @@ sqlite.pragma('foreign_keys = ON')
 export const db = drizzle(sqlite)
 
 export const users = sqliteTable('users', {
-  id:           text('id').primaryKey(),
-  username:     text('username').notNull().unique(),
-  passwordHash: text('password_hash').notNull(),
-  cloudEnabled: integer('cloud_enabled', { mode: 'boolean' }).notNull().default(false),
-  createdAt:    integer('created_at').notNull(),
+  id:                 text('id').primaryKey(),
+  username:           text('username').notNull().unique(),
+  passwordHash:       text('password_hash').notNull(),
+  cloudEnabled:       integer('cloud_enabled', { mode: 'boolean' }).notNull().default(false),
+  nickname:           text('nickname'),
+  avatar:             text('avatar'),
+  email:              text('email'),
+  emailVerified:      integer('email_verified', { mode: 'boolean' }).notNull().default(false),
+  emailVerifyCode:    text('email_verify_code'),
+  emailVerifyExpiry:  integer('email_verify_expiry'),
+  resetCode:          text('reset_code'),
+  resetCodeExpiry:    integer('reset_code_expiry'),
+  createdAt:          integer('created_at').notNull(),
 })
 
 export const notes = sqliteTable('notes', {
@@ -64,6 +72,12 @@ export function initDb() {
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       cloud_enabled INTEGER NOT NULL DEFAULT 0,
+      email TEXT,
+      email_verified INTEGER NOT NULL DEFAULT 0,
+      email_verify_code TEXT,
+      email_verify_expiry INTEGER,
+      reset_code TEXT,
+      reset_code_expiry INTEGER,
       created_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS notes (
@@ -108,4 +122,16 @@ export function initDb() {
   ]
   const insert = sqlite.prepare(`INSERT OR IGNORE INTO invite_codes (code) VALUES (?)`)
   for (const code of INVITE_CODES) insert.run(code)
+
+  // 迁移：为已有数据库添加邮箱相关字段
+  const cols = sqlite.prepare(`PRAGMA table_info(users)`).all() as { name: string }[]
+  const colNames = cols.map(c => c.name)
+  if (!colNames.includes('email'))               sqlite.exec(`ALTER TABLE users ADD COLUMN email TEXT`)
+  if (!colNames.includes('email_verified'))       sqlite.exec(`ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`)
+  if (!colNames.includes('email_verify_code'))    sqlite.exec(`ALTER TABLE users ADD COLUMN email_verify_code TEXT`)
+  if (!colNames.includes('email_verify_expiry'))  sqlite.exec(`ALTER TABLE users ADD COLUMN email_verify_expiry INTEGER`)
+  if (!colNames.includes('reset_code'))           sqlite.exec(`ALTER TABLE users ADD COLUMN reset_code TEXT`)
+  if (!colNames.includes('reset_code_expiry'))    sqlite.exec(`ALTER TABLE users ADD COLUMN reset_code_expiry INTEGER`)
+  if (!colNames.includes('nickname'))             sqlite.exec(`ALTER TABLE users ADD COLUMN nickname TEXT`)
+  if (!colNames.includes('avatar'))               sqlite.exec(`ALTER TABLE users ADD COLUMN avatar TEXT`)
 }

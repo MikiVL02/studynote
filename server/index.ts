@@ -1,10 +1,11 @@
-import 'dotenv/config'
+import dotenv from 'dotenv'
+import path from 'node:path'
+dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { cors } from 'hono/cors'
 import Anthropic from '@anthropic-ai/sdk'
 import fs from 'node:fs'
-import path from 'node:path'
 import { initDb } from './db'
 import { authRouter } from './routes/auth'
 import { notesRouter } from './routes/notes'

@@ -18,6 +18,7 @@ import { useAppStore } from '../../stores/appStore'
 import { TrashView } from './TrashView'
 import { formatDate } from '../../lib/utils'
 import type { Folder as FolderType, Note } from '../../db'
+import { UserMenu } from '../auth/UserMenu'
 
 export function Sidebar() {
   const {
@@ -420,6 +421,9 @@ export function Sidebar() {
             style={{ display: 'none' }}
             onChange={handleImportFile}
           />
+        </div>
+        <div className="px-3 py-2 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+          <UserMenu />
         </div>
       </aside>
 

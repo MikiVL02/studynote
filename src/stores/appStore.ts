@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { db, type Note, type Folder } from '../db'
 import { generateId, extractTextFromJSON } from '../lib/utils'
+import { getToken, clearToken, parseToken, type CurrentUser } from '../lib/auth'
+import { pullAll, pushAll, pushNote, pushFolder, pushDeleteNote, pushDeleteFolder, mergeNotes, mergeFolders } from '../lib/sync'
 
 interface AppState {
   notes: Note[]
@@ -42,6 +44,12 @@ interface AppState {
   restoreNote: (id: string) => Promise<void>
   emptyTrash: () => Promise<void>
   trashNotes: () => Note[]
+
+  currentUser: CurrentUser | null
+  syncStatus: 'idle' | 'syncing' | 'error'
+  setCurrentUser: (user: CurrentUser | null) => void
+  logout: () => void
+  syncFromCloud: () => Promise<void>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -58,6 +66,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   sortOrder: 'desc',
   _notesVersion: 0,
   _filteredCache: null,
+  currentUser: (() => { const token = getToken(); return token ? parseToken(token) : null })(),
+  syncStatus: 'idle' as const,
 
   loadAll: async () => {
     let [notes, folders] = await Promise.all([
@@ -95,6 +105,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     await db.notes.add(note)
     set(s => ({ notes: [note, ...s.notes], activeNoteId: id, _notesVersion: s._notesVersion + 1, _filteredCache: null }))
+    if (get().currentUser?.cloudEnabled) pushNote(note)
     return id
   },
 
@@ -110,6 +121,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       _notesVersion: s._notesVersion + 1,
       _filteredCache: null,
     }))
+    const updated = get().notes.find(n => n.id === id)
+    if (updated && get().currentUser?.cloudEnabled) pushNote(updated)
   },
 
   deleteNote: async (id) => {
@@ -120,6 +133,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const activeNoteId = s.activeNoteId === id ? '__welcome__' : s.activeNoteId
       return { notes, activeNoteId, _notesVersion: s._notesVersion + 1, _filteredCache: null }
     })
+    if (get().currentUser?.cloudEnabled) pushDeleteNote(id)
   },
 
   restoreNote: async (id) => {
@@ -155,12 +169,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     const folder: Folder = { id, name, parentId, order, createdAt: Date.now() }
     await db.folders.add(folder)
     set(s => ({ folders: [...s.folders, folder] }))
+    if (get().currentUser?.cloudEnabled) pushFolder(folder)
     return id
   },
 
   updateFolder: async (id, patch) => {
     await db.folders.update(id, patch)
     set(s => ({ folders: s.folders.map(f => f.id === id ? { ...f, ...patch } : f) }))
+    const updatedF = get().folders.find(f => f.id === id)
+    if (updatedF && get().currentUser?.cloudEnabled) pushFolder(updatedF)
   },
 
   deleteFolder: async (id) => {
@@ -170,6 +187,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const notesToMove = get().notes.filter(n => n.folderId === id)
     for (const n of notesToMove) await get().updateNote(n.id, { folderId: null })
     set(s => ({ folders: s.folders.filter(f => f.id !== id) }))
+    if (get().currentUser?.cloudEnabled) pushDeleteFolder(id)
   },
 
   setActiveNote: (id) => set({ activeNoteId: id }),
@@ -237,5 +255,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     return notes
       .filter(n => n.deletedAt !== null)
       .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0))
+  },
+
+  setCurrentUser: (user) => set({ currentUser: user }),
+
+  logout: () => {
+    clearToken()
+    set({ currentUser: null, syncStatus: 'idle' })
+  },
+
+  syncFromCloud: async () => {
+    const { notes, folders, currentUser } = get()
+    if (!currentUser?.cloudEnabled) return
+    set({ syncStatus: 'syncing' })
+    try {
+      const remote = await pullAll()
+      const mergedNotes = mergeNotes(notes, remote.notes)
+      const mergedFolders = mergeFolders(folders, remote.folders)
+      await Promise.all(mergedNotes.map((n: any) => db.notes.put(n)))
+      await Promise.all(mergedFolders.map((f: any) => db.folders.put(f)))
+      await pushAll({ notes: mergedNotes, folders: mergedFolders })
+      set({ notes: mergedNotes, folders: mergedFolders, syncStatus: 'idle', _notesVersion: get()._notesVersion + 1, _filteredCache: null })
+    } catch {
+      set({ syncStatus: 'error' })
+    }
   },
 }))

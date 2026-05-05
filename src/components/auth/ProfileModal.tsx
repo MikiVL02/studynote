@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { X, CheckCircle, Mail, Camera, Key, LogOut, Cloud } from 'lucide-react'
 import {
   apiUpdateProfile, apiChangePassword,
@@ -30,6 +30,8 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const [emailCode, setEmailCode] = useState('')
   const [emailLoading, setEmailLoading] = useState(false)
   const [emailError, setEmailError] = useState('')
+  const [resendCountdown, setResendCountdown] = useState(0)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // 修改密码
   const [oldPwd, setOldPwd] = useState('')
@@ -37,6 +39,18 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const [pwdLoading, setPwdLoading] = useState(false)
   const [pwdError, setPwdError] = useState('')
   const [pwdOk, setPwdOk] = useState(false)
+
+  useEffect(() => () => { if (countdownRef.current) clearInterval(countdownRef.current) }, [])
+
+  function startCountdown() {
+    setResendCountdown(60)
+    countdownRef.current = setInterval(() => {
+      setResendCountdown(n => {
+        if (n <= 1) { clearInterval(countdownRef.current!); return 0 }
+        return n - 1
+      })
+    }, 1000)
+  }
 
   const inputStyle: React.CSSProperties = {
     background: 'var(--bg-muted)',
@@ -102,6 +116,20 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
     try {
       await apiSendEmailVerify(email)
       setSection('email-code')
+      startCountdown()
+    } catch (err: any) {
+      setEmailError(err.message)
+    } finally {
+      setEmailLoading(false)
+    }
+  }
+
+  async function handleResendEmailCode() {
+    setEmailError('')
+    setEmailLoading(true)
+    try {
+      await apiSendEmailVerify(email)
+      startCountdown()
     } catch (err: any) {
       setEmailError(err.message)
     } finally {
@@ -369,7 +397,7 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
         {section === 'email-code' && (
           <form onSubmit={handleVerifyEmail} className="flex flex-col gap-3">
             <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
-              验证码已发送至 {email || currentUser?.email}，10 分钟内有效
+              验证码已发送至 {email}，10 分钟内有效
             </p>
             <input
               style={inputStyle}
@@ -387,6 +415,15 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
               style={{ background: 'var(--accent)', color: '#fff', opacity: emailLoading ? 0.7 : 1 }}
             >
               {emailLoading ? '验证中…' : '验证'}
+            </button>
+            <button
+              type="button"
+              onClick={handleResendEmailCode}
+              disabled={resendCountdown > 0 || emailLoading}
+              className="text-xs text-center"
+              style={{ color: resendCountdown > 0 ? 'var(--text-faint)' : 'var(--accent)', cursor: resendCountdown > 0 ? 'default' : 'pointer' }}
+            >
+              {resendCountdown > 0 ? `${resendCountdown} 秒后可重新发送` : '重新发送验证码'}
             </button>
           </form>
         )}

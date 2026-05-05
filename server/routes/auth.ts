@@ -96,17 +96,25 @@ authRouter.post('/email/send-verify', requireAuth, async (c) => {
   const { email } = await c.req.json<{ email: string }>()
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: '邮箱格式不正确' }, 400)
 
-  // 检查邮箱是否已被其他用户绑定
+  // 检查邮箱是否已被其他已验证用户绑定
   const existing = db.select().from(users).where(eq(users.email, email)).all()
   if (existing.some(u => u.id !== userId)) return c.json({ error: '该邮箱已被其他账号绑定' }, 409)
 
+  // 60 秒冷却：上次发送时间在 60 秒内则拒绝
+  const [user] = db.select().from(users).where(eq(users.id, userId)).all()
+  if (user?.emailVerifyExpiry && user.emailVerifyExpiry - Date.now() > 9 * 60 * 1000) {
+    return c.json({ error: '请等待 60 秒后再重新发送' }, 429)
+  }
+
   const code = randomCode()
   const expiry = Date.now() + 10 * 60 * 1000
-  db.update(users).set({ email, emailVerifyCode: code, emailVerifyExpiry: expiry, emailVerified: false }).where(eq(users.id, userId)).run()
+  // 只写入 pendingEmail，不修改 email 字段
+  db.update(users).set({ pendingEmail: email, emailVerifyCode: code, emailVerifyExpiry: expiry }).where(eq(users.id, userId)).run()
 
   try {
     await sendVerifyCode(email, code)
-  } catch {
+  } catch (err) {
+    console.error('[email]', err)
     return c.json({ error: '邮件发送失败，请稍后再试' }, 500)
   }
   return c.json({ success: true })
@@ -123,7 +131,8 @@ authRouter.post('/email/verify', requireAuth, async (c) => {
   if (!user.emailVerifyCode || user.emailVerifyCode !== code.trim()) return c.json({ error: '验证码错误' }, 400)
   if (!user.emailVerifyExpiry || Date.now() > user.emailVerifyExpiry) return c.json({ error: '验证码已过期，请重新发送' }, 400)
 
-  db.update(users).set({ emailVerified: true, emailVerifyCode: null, emailVerifyExpiry: null }).where(eq(users.id, userId)).run()
+  // 验证成功：将 pendingEmail 写入正式 email 字段
+  db.update(users).set({ email: user.pendingEmail, emailVerified: true, pendingEmail: null, emailVerifyCode: null, emailVerifyExpiry: null }).where(eq(users.id, userId)).run()
   return c.json({ success: true })
 })
 

@@ -22,6 +22,7 @@ export const users = sqliteTable('users', {
   avatar:             text('avatar'),
   email:              text('email'),
   emailVerified:      integer('email_verified', { mode: 'boolean' }).notNull().default(false),
+  pendingEmail:       text('pending_email'),
   emailVerifyCode:    text('email_verify_code'),
   emailVerifyExpiry:  integer('email_verify_expiry'),
   resetCode:          text('reset_code'),
@@ -134,4 +135,5 @@ export function initDb() {
   if (!colNames.includes('reset_code_expiry'))    sqlite.exec(`ALTER TABLE users ADD COLUMN reset_code_expiry INTEGER`)
   if (!colNames.includes('nickname'))             sqlite.exec(`ALTER TABLE users ADD COLUMN nickname TEXT`)
   if (!colNames.includes('avatar'))               sqlite.exec(`ALTER TABLE users ADD COLUMN avatar TEXT`)
+  if (!colNames.includes('pending_email'))        sqlite.exec(`ALTER TABLE users ADD COLUMN pending_email TEXT`)
 }

@@ -6,7 +6,7 @@ import { useAppStore } from './stores/appStore'
 import { seedIfEmpty, deduplicateDB } from './db'
 
 export default function App() {
-  const { loadAll, theme, focusMode, aiPanelOpen, toggleFocusMode, toggleAiPanel, createNote, activeFolderId } = useAppStore()
+  const { loadAll, theme, focusMode, aiPanelOpen, toggleFocusMode, toggleAiPanel, createNote, activeFolderId, refreshCurrentUser } = useAppStore()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   useEffect(() => {
@@ -17,6 +17,7 @@ export default function App() {
     seedIfEmpty()
       .then(() => deduplicateDB())
       .then(() => loadAll())
+    refreshCurrentUser()
   }, [])
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { db, type Note, type Folder } from '../db'
 import { generateId, extractTextFromJSON } from '../lib/utils'
-import { getToken, clearToken, parseToken, type CurrentUser } from '../lib/auth'
+import { getToken, clearToken, parseToken, apiGetMe, type CurrentUser } from '../lib/auth'
 import { pullAll, pushAll, pushNote, pushFolder, pushDeleteNote, pushDeleteFolder, mergeNotes, mergeFolders } from '../lib/sync'
 
 interface AppState {
@@ -49,6 +49,7 @@ interface AppState {
   syncStatus: 'idle' | 'syncing' | 'error'
   setCurrentUser: (user: CurrentUser | null) => void
   logout: () => void
+  refreshCurrentUser: () => Promise<void>
   syncFromCloud: () => Promise<void>
 }
 
@@ -262,6 +263,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   logout: () => {
     clearToken()
     set({ currentUser: null, syncStatus: 'idle' })
+  },
+
+  refreshCurrentUser: async () => {
+    const token = getToken()
+    if (!token) return
+    try {
+      const user = await apiGetMe()
+      set({ currentUser: user })
+      if (user.cloudEnabled) get().syncFromCloud()
+    } catch {
+      // token 失效则清除
+      clearToken()
+      set({ currentUser: null })
+    }
   },
 
   syncFromCloud: async () => {

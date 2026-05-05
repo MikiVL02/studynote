@@ -1,17 +1,19 @@
 import nodemailer from 'nodemailer'
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.126.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: 'mikivl@126.com',
-    pass: process.env.EMAIL_PASS!,
-  },
-})
+function createTransporter() {
+  return nodemailer.createTransport({
+    host: 'smtp.126.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: 'mikivl@126.com',
+      pass: process.env.EMAIL_PASS!,
+    },
+  })
+}
 
 export async function sendVerifyCode(to: string, code: string) {
-  await transporter.sendMail({
+  await createTransporter().sendMail({
     from: '"MikiVL 笔记" <mikivl@126.com>',
     to,
     subject: '邮箱验证码',
@@ -21,7 +23,7 @@ export async function sendVerifyCode(to: string, code: string) {
 }
 
 export async function sendResetCode(to: string, code: string) {
-  await transporter.sendMail({
+  await createTransporter().sendMail({
     from: '"MikiVL 笔记" <mikivl@126.com>',
     to,
     subject: '重置密码验证码',

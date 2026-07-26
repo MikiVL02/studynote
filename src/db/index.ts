@@ -64,8 +64,12 @@ export function seedIfEmpty(): Promise<void> {
 }
 
 async function _doSeed() {
-  const count = await db.notes.count()
-  if (count > 0) return
+  // 用文件夹数量做判断，防止 notes 为空但文件夹已存在时重复创建
+  const [noteCount, folderCount] = await Promise.all([
+    db.notes.count(),
+    db.folders.count(),
+  ])
+  if (noteCount > 0 || folderCount > 0) return
 
   const folderId1 = crypto.randomUUID()
   const folderId2 = crypto.randomUUID()

@@ -76,6 +76,7 @@ export function UserMenu() {
             <span>输入邀请码开启云存储</span>
           </button>
         )}
+
       </div>
 
       {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}

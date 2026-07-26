@@ -48,6 +48,7 @@ export function Sidebar() {
   } | null>(null)
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [deleteFolderConfirm, setDeleteFolderConfirm] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -178,6 +179,7 @@ export function Sidebar() {
               if (e.key === 'Enter') handleRenameFolder(folder.id)
               if (e.key === 'Escape') setEditingFolderId(null)
             }}
+            onDelete={() => setDeleteFolderConfirm(folder.id)}
           />
           {expandedFolders.has(folder.id) && renderFolder(folder.id, depth + 1)}
         </div>
@@ -211,7 +213,7 @@ export function Sidebar() {
         </div>
 
         {/* Search */}
-        <div className="px-3 py-2">
+        <div className="px-3 py-2 shrink-0">
           <div
             className="flex items-center gap-2 rounded-lg px-3 py-1.5"
             style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}
@@ -228,7 +230,7 @@ export function Sidebar() {
         </div>
 
         {/* Nav shortcuts */}
-        <nav className="px-2 space-y-0.5">
+        <nav className="px-2 space-y-0.5 shrink-0">
           <NavItem icon={<BookOpen size={14} />} label="使用指南" active={activeNoteId === '__welcome__'} onClick={() => setActiveNote('__welcome__')} />
           <NavItem icon={<FileText size={14} />} label="所有笔记" count={notes.length} active={activeFolderId === 'all' && activeNoteId !== '__welcome__'} onClick={() => { setActiveFolder('all'); if (activeNoteId === '__welcome__') setActiveNote(null) }} />
           <NavItem icon={<Star size={14} />} label="收藏" count={notes.filter(n => n.starred).length} active={activeFolderId === 'starred'} onClick={() => { setActiveFolder('starred'); if (activeNoteId === '__welcome__') setActiveNote(null) }} />
@@ -242,14 +244,14 @@ export function Sidebar() {
         </nav>
 
         {/* Folders section */}
-        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+        <div className="px-3 pt-3 pb-1 flex items-center justify-between shrink-0">
           <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>文件夹</span>
           <button onClick={() => setCreatingFolder(true)} className="toolbar-btn" title="新建文件夹">
             <FolderPlus size={13} />
           </button>
         </div>
 
-        <div className="px-2 space-y-0.5">
+        <div className="px-2 space-y-0.5 overflow-y-auto" style={{ maxHeight: '30%' }}>
           {renderFolder(null, 0)}
 
           {creatingFolder && (
@@ -472,6 +474,36 @@ export function Sidebar() {
           </div>
         </div>
       )}
+      {deleteFolderConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setDeleteFolderConfirm(null)}
+        >
+          <div
+            className="rounded-2xl shadow-2xl p-5 flex flex-col gap-4"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', width: 320 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>删除文件夹？</p>
+            <p className="text-xs" style={{ color: 'var(--text-faint)' }}>文件夹内的笔记将移至「所有笔记」，文件夹本身将被永久删除。</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteFolderConfirm(null)}
+                className="px-3 py-1.5 rounded-lg text-sm"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-muted)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >取消</button>
+              <button
+                onClick={async () => { await deleteFolder(deleteFolderConfirm); setDeleteFolderConfirm(null) }}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium"
+                style={{ background: '#ef4444', color: '#fff' }}
+              >永久删除</button>
+            </div>
+          </div>
+        </div>
+      )}
     </DndContext>
   )
 }
@@ -489,13 +521,15 @@ function NavItem({ icon, label, count, active, onClick }: { icon: React.ReactNod
   )
 }
 
-function DroppableFolderItem({ folder, depth, expanded, active, editing, editValue, editRef, onToggle, onClick, onContextMenu, onEditChange, onEditBlur, onEditKeyDown }: {
+function DroppableFolderItem({ folder, depth, expanded, active, editing, editValue, editRef, onToggle, onClick, onContextMenu, onEditChange, onEditBlur, onEditKeyDown, onDelete }: {
   folder: FolderType; depth: number; expanded: boolean; active: boolean; editing: boolean
   editValue: string; editRef: React.RefObject<HTMLInputElement | null>
   onToggle: () => void; onClick: () => void; onContextMenu: (e: React.MouseEvent) => void
   onEditChange: (v: string) => void; onEditBlur: () => void; onEditKeyDown: (e: React.KeyboardEvent) => void
+  onDelete: () => void
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: folder.id })
+  const [hovered, setHovered] = useState(false)
 
   return (
     <div
@@ -503,6 +537,7 @@ function DroppableFolderItem({ folder, depth, expanded, active, editing, editVal
       className="flex items-center gap-1.5 py-1.5 rounded-lg cursor-pointer text-sm"
       style={{
         paddingLeft: 8 + depth * 16,
+        paddingRight: 8,
         background: isOver ? 'var(--accent-subtle)' : active ? 'var(--accent-subtle)' : 'transparent',
         color: active || isOver ? 'var(--accent)' : 'var(--text-muted)',
         outline: isOver ? '2px solid var(--accent)' : 'none',
@@ -510,6 +545,8 @@ function DroppableFolderItem({ folder, depth, expanded, active, editing, editVal
       }}
       onClick={onClick}
       onContextMenu={onContextMenu}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <button onClick={e => { e.stopPropagation(); onToggle() }} className="toolbar-btn" style={{ width: 16, height: 16, flexShrink: 0 }}>
         {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -522,6 +559,18 @@ function DroppableFolderItem({ folder, depth, expanded, active, editing, editVal
           className="bg-transparent outline-none flex-1 text-sm" style={{ color: 'var(--text)' }} onClick={e => e.stopPropagation()} />
       ) : (
         <span className="flex-1 truncate" style={{ fontWeight: active ? 500 : 400 }}>{folder.name}</span>
+      )}
+      {hovered && !editing && (
+        <button
+          className="toolbar-btn"
+          style={{ width: 20, height: 20, color: '#ef4444', opacity: 0.8, flexShrink: 0 }}
+          title="删除文件夹"
+          onClick={e => { e.stopPropagation(); onDelete() }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '0.8')}
+        >
+          <Trash2 size={12} />
+        </button>
       )}
     </div>
   )

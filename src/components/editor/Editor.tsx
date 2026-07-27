@@ -30,6 +30,9 @@ import { useAppStore } from '../../stores/appStore'
 import { countWords } from '../../lib/utils'
 import { streamAI } from '../../lib/ai'
 import { WelcomeView } from './WelcomeView'
+import { AllNotesView } from './AllNotesView'
+import { StarredView } from './StarredView'
+import { TrashHomeView } from './TrashHomeView'
 import { ExportMenu } from './ExportMenu'
 
 const lowlight = createLowlight(common)
@@ -80,7 +83,7 @@ function SlashMenu({ items, selectedIndex, onSelect }: {
 }
 
 export function Editor() {
-  const { activeNoteId, notes, updateNote, toggleStar, focusMode, toggleFocusMode, toggleAiPanel, aiPanelOpen } = useAppStore()
+  const { activeNoteId, activeFolderId, notes, updateNote, toggleStar, focusMode, toggleFocusMode, toggleAiPanel, aiPanelOpen } = useAppStore()
   const activeNote = notes.find(n => n.id === activeNoteId)
 
   const [title, setTitle] = useState(activeNote?.title ?? '')
@@ -352,7 +355,10 @@ export function Editor() {
   }
 
   if (!activeNote || activeNoteId === '__welcome__') {
-    return <WelcomeView />
+    if (activeNoteId === '__welcome__') return <WelcomeView />
+    if (activeFolderId === 'starred') return <StarredView />
+    if (activeFolderId === 'trash') return <TrashHomeView />
+    return <AllNotesView />
   }
 
   const readingTime = wordCount > 0 ? Math.max(1, Math.ceil(wordCount / 250)) : 0

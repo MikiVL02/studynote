@@ -1,7 +1,7 @@
 import type { Note, Folder } from '../db'
 import { authHeaders } from './auth'
 
-const API = '/api'
+const API = 'https://www.mikivl.online/api/note'
 
 export type SyncPayload = { notes: Note[]; folders: Folder[] }
 

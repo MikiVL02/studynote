@@ -22,7 +22,7 @@ export function ModelSettingsModal({ onClose }: { onClose: () => void }) {
 
   const fetchModels = async () => {
     try {
-      const res = await fetch('/api/models')
+      const res = await fetch('https://www.mikivl.online/api/note/models')
       setModels(await res.json())
     } finally {
       setLoading(false)
@@ -32,12 +32,12 @@ export function ModelSettingsModal({ onClose }: { onClose: () => void }) {
   useEffect(() => { fetchModels() }, [])
 
   const activate = async (id: string) => {
-    await fetch(`/api/models/${id}/activate`, { method: 'PATCH' })
+    await fetch(`https://www.mikivl.online/api/note/models/${id}/activate`, { method: 'PATCH' })
     setModels(prev => prev.map(m => ({ ...m, isActive: m.id === id })))
   }
 
   const remove = async (id: string) => {
-    const res = await fetch(`/api/models/${id}`, { method: 'DELETE' })
+    const res = await fetch(`https://www.mikivl.online/api/note/models/${id}`, { method: 'DELETE' })
     if (res.ok) setModels(prev => {
       const next = prev.filter(m => m.id !== id)
       if (prev.find(m => m.id === id)?.isActive && next.length > 0) next[0].isActive = true
@@ -52,7 +52,7 @@ export function ModelSettingsModal({ onClose }: { onClose: () => void }) {
     setFormError('')
     setSaving(true)
     try {
-      const res = await fetch('/api/models', {
+      const res = await fetch('https://www.mikivl.online/api/note/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

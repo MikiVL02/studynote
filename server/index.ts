@@ -6,11 +6,12 @@ import { serve } from '@hono/node-server'
 import { cors } from 'hono/cors'
 import Anthropic from '@anthropic-ai/sdk'
 import fs from 'node:fs'
-import { initDb } from './db'
+import { initDb, db, siteContent } from './db'
 import { authRouter } from './routes/auth'
 import { notesRouter } from './routes/notes'
 import { foldersRouter } from './routes/folders'
 import { commentsRouter } from './routes/comments'
+import { adminRouter } from './routes/admin'
 
 const app = new Hono()
 app.use('*', cors())
@@ -65,17 +66,26 @@ function getActiveModel(): string {
 
 // ── Model CRUD endpoints ──────────────────────────────────────────────────────
 app.route('/api/auth', authRouter)
-app.route('/api/notes', notesRouter)
-app.route('/api/folders', foldersRouter)
-app.route('/api/comments', commentsRouter)
+app.route('/api/admin', adminRouter)
+app.route('/api/note/notes', notesRouter)
+app.route('/api/note/folders', foldersRouter)
+app.route('/api/note/comments', commentsRouter)
 
-app.get('/api/models', (c) => {
+// 公共站点内容接口（无需认证）
+app.get('/api/site-content', (c) => {
+  const rows = db.select().from(siteContent).all()
+  const result: Record<string, string> = {}
+  for (const row of rows) result[row.key] = row.value
+  return c.json(result)
+})
+
+app.get('/api/note/models', (c) => {
   const models = readModels()
   // strip apiKey from response for security
   return c.json(models.map(({ apiKey: _, ...rest }) => rest))
 })
 
-app.post('/api/models', async (c) => {
+app.post('/api/note/models', async (c) => {
   const body = await c.req.json<{ name: string; apiKey: string; baseURL: string; modelId?: string }>()
   const models = readModels()
   const newModel: ModelConfig = {
@@ -92,7 +102,7 @@ app.post('/api/models', async (c) => {
   return c.json(safe)
 })
 
-app.patch('/api/models/:id/activate', (c) => {
+app.patch('/api/note/models/:id/activate', (c) => {
   const { id } = c.req.param()
   const models = readModels()
   models.forEach(m => { m.isActive = m.id === id })
@@ -100,7 +110,7 @@ app.patch('/api/models/:id/activate', (c) => {
   return c.json({ ok: true })
 })
 
-app.delete('/api/models/:id', (c) => {
+app.delete('/api/note/models/:id', (c) => {
   const { id } = c.req.param()
   let models = readModels()
   const target = models.find(m => m.id === id)
@@ -157,7 +167,7 @@ function buildSystemPrompt(type: AIStreamRequest['type'], noteContent: string): 
 }
 
 // ── Stream endpoint ───────────────────────────────────────────────────────────
-app.post('/api/ai/stream', async (c) => {
+app.post('/api/note/ai/stream', async (c) => {
   const req = await c.req.json<AIStreamRequest>()
   const aiClient = getActiveClient()
   const modelId = getActiveModel()
@@ -204,6 +214,6 @@ app.post('/api/ai/stream', async (c) => {
 
 initDb()
 
-serve({ fetch: app.fetch, port: 3001 }, () => {
-  console.log('AI proxy server running on http://localhost:3001')
+serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3003) }, () => {
+  console.log(`AI proxy server running on http://localhost:${process.env.PORT ?? 3003}`)
 })

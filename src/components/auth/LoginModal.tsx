@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
-import { apiLogin, apiRegister, apiActivate, setToken, apiForgotPassword, apiResetPassword } from '../../lib/auth'
+import { apiLogin, apiRegister, apiRegisterSendCode, apiActivate, setToken, apiForgotPassword, apiResetPassword } from '../../lib/auth'
 import { useAppStore } from '../../stores/appStore'
 
 type Tab = 'login' | 'register' | 'activate'
-// 忘记密码分两步：输入邮箱 → 输入验证码+新密码
+type RegisterStep = 'form' | 'verify'
 type ForgotStep = 'email' | 'reset'
 
 export function LoginModal({ onClose, initialTab }: { onClose: () => void; initialTab?: Tab }) {
@@ -16,12 +16,44 @@ export function LoginModal({ onClose, initialTab }: { onClose: () => void; initi
   const [loading, setLoading] = useState(false)
   const { setCurrentUser, syncFromCloud, currentUser } = useAppStore()
 
+  // 注册两步流程
+  const [registerStep, setRegisterStep] = useState<RegisterStep>('form')
+  const [regUsername, setRegUsername] = useState('')
+  const [regEmail, setRegEmail] = useState('')
+  const [regPassword, setRegPassword] = useState('')
+  const [regCode, setRegCode] = useState('')
+  const [countdown, setCountdown] = useState(0)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   // 忘记密码状态
   const [forgotMode, setForgotMode] = useState(false)
   const [forgotStep, setForgotStep] = useState<ForgotStep>('email')
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotCode, setForgotCode] = useState('')
   const [forgotPassword, setForgotPassword] = useState('')
+
+  useEffect(() => () => { if (countdownRef.current) clearInterval(countdownRef.current) }, [])
+
+  function startCountdown() {
+    setCountdown(60)
+    countdownRef.current = setInterval(() => {
+      setCountdown(v => {
+        if (v <= 1) { clearInterval(countdownRef.current!); return 0 }
+        return v - 1
+      })
+    }, 1000)
+  }
+
+  function resetRegister() {
+    setRegisterStep('form')
+    setRegUsername('')
+    setRegEmail('')
+    setRegPassword('')
+    setRegCode('')
+    setCountdown(0)
+    if (countdownRef.current) clearInterval(countdownRef.current)
+    setError('')
+  }
 
   function resetForgot() {
     setForgotMode(false)
@@ -30,6 +62,51 @@ export function LoginModal({ onClose, initialTab }: { onClose: () => void; initi
     setForgotCode('')
     setForgotPassword('')
     setError('')
+  }
+
+  async function handleRegisterSend(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      await apiRegisterSendCode(regUsername, regPassword, regEmail)
+      setRegisterStep('verify')
+      startCountdown()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRegisterVerify(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const { token, user } = await apiRegister(regEmail, regCode)
+      setToken(token)
+      setCurrentUser(user)
+      onClose()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleResend() {
+    if (countdown > 0) return
+    setError('')
+    setLoading(true)
+    try {
+      await apiRegisterSendCode(regUsername, regPassword, regEmail)
+      startCountdown()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleForgotSend(e: React.FormEvent) {
@@ -71,11 +148,6 @@ export function LoginModal({ onClose, initialTab }: { onClose: () => void; initi
         setCurrentUser(user)
         if (user.cloudEnabled) await syncFromCloud()
         onClose()
-      } else if (tab === 'register') {
-        const { token, user } = await apiRegister(username, password)
-        setToken(token)
-        setCurrentUser(user)
-        onClose()
       } else {
         await apiActivate(code)
         setCurrentUser({ ...currentUser!, cloudEnabled: true })
@@ -115,7 +187,9 @@ export function LoginModal({ onClose, initialTab }: { onClose: () => void; initi
           <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
             {forgotMode
               ? (forgotStep === 'email' ? '找回密码' : '重置密码')
-              : (tab === 'login' ? '登录' : tab === 'register' ? '注册' : '激活云存储')}
+              : (tab === 'login' ? '登录' : tab === 'register'
+                ? (registerStep === 'form' ? '注册' : '验证邮箱')
+                : '激活云存储')}
           </h2>
           <button onClick={onClose} className="p-1 rounded" style={{ color: 'var(--text-faint)' }}>
             <X size={14} />
@@ -198,6 +272,94 @@ export function LoginModal({ onClose, initialTab }: { onClose: () => void; initi
               </div>
             </form>
           )
+        ) : tab === 'register' ? (
+          // 注册两步流程
+          registerStep === 'form' ? (
+            <form onSubmit={handleRegisterSend} className="flex flex-col gap-3">
+              <input
+                style={inputStyle}
+                placeholder="用户名（2-20 位）"
+                value={regUsername}
+                onChange={e => setRegUsername(e.target.value)}
+                autoFocus
+              />
+              <input
+                style={inputStyle}
+                type="email"
+                placeholder="邮箱地址"
+                value={regEmail}
+                onChange={e => setRegEmail(e.target.value)}
+              />
+              <input
+                style={inputStyle}
+                type="password"
+                placeholder="密码（至少 6 位）"
+                value={regPassword}
+                onChange={e => setRegPassword(e.target.value)}
+              />
+              {error && <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setTab('login'); setError('') }}
+                  className="flex-1 py-2 rounded-lg text-sm"
+                  style={{ background: 'var(--bg-muted)', color: 'var(--text-faint)' }}
+                >
+                  去登录
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-2 rounded-lg text-sm font-medium"
+                  style={{ background: 'var(--accent)', color: '#fff', opacity: loading ? 0.7 : 1 }}
+                >
+                  {loading ? '发送中…' : '发送验证码'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleRegisterVerify} className="flex flex-col gap-3">
+              <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
+                验证码已发送至 <strong style={{ color: 'var(--text)' }}>{regEmail}</strong>，10 分钟内有效
+              </p>
+              <input
+                style={inputStyle}
+                placeholder="6 位验证码"
+                value={regCode}
+                onChange={e => setRegCode(e.target.value)}
+                maxLength={6}
+                autoFocus
+              />
+              {error && <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2 rounded-lg text-sm font-medium"
+                style={{ background: 'var(--accent)', color: '#fff', opacity: loading ? 0.7 : 1 }}
+              >
+                {loading ? '注册中…' : '完成注册'}
+              </button>
+              <div className="flex justify-between items-center">
+                <button
+                  type="button"
+                  onClick={() => { resetRegister() }}
+                  className="text-xs"
+                  style={{ color: 'var(--text-faint)' }}
+                >
+                  修改信息
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={countdown > 0 || loading}
+                  className="text-xs"
+                  style={{ color: countdown > 0 ? 'var(--text-faint)' : 'var(--accent)' }}
+                >
+                  {countdown > 0 ? `重新发送 (${countdown}s)` : '重新发送'}
+                </button>
+              </div>
+            </form>
+          )
         ) : (
           <>
             {tab !== 'activate' && (
@@ -205,7 +367,7 @@ export function LoginModal({ onClose, initialTab }: { onClose: () => void; initi
                 {(['login', 'register'] as Tab[]).map(t => (
                   <button
                     key={t}
-                    onClick={() => setTab(t)}
+                    onClick={() => { setTab(t); setError('') }}
                     className="flex-1 py-1 rounded text-xs font-medium transition-all"
                     style={{
                       background: tab === t ? 'var(--bg)' : 'transparent',
@@ -254,7 +416,7 @@ export function LoginModal({ onClose, initialTab }: { onClose: () => void; initi
                 className="w-full py-2 rounded-lg text-sm font-medium"
                 style={{ background: 'var(--accent)', color: '#fff', opacity: loading ? 0.7 : 1 }}
               >
-                {loading ? '请稍候…' : tab === 'login' ? '登录' : tab === 'register' ? '注册' : '激活'}
+                {loading ? '请稍候…' : tab === 'login' ? '登录' : '激活'}
               </button>
 
               {tab === 'login' && (

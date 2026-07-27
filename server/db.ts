@@ -18,6 +18,8 @@ export const users = sqliteTable('users', {
   username:           text('username').notNull().unique(),
   passwordHash:       text('password_hash').notNull(),
   cloudEnabled:       integer('cloud_enabled', { mode: 'boolean' }).notNull().default(false),
+  role:               text('role').notNull().default('user'),
+  banned:             integer('banned', { mode: 'boolean' }).notNull().default(false),
   nickname:           text('nickname'),
   avatar:             text('avatar'),
   email:              text('email'),
@@ -64,6 +66,11 @@ export const inviteCodes = sqliteTable('invite_codes', {
   code:         text('code').primaryKey(),
   usedByUserId: text('used_by_user_id'),
   usedAt:       integer('used_at'),
+})
+
+export const siteContent = sqliteTable('site_content', {
+  key:   text('key').primaryKey(),
+  value: text('value').notNull(),
 })
 
 export function initDb() {
@@ -136,4 +143,32 @@ export function initDb() {
   if (!colNames.includes('nickname'))             sqlite.exec(`ALTER TABLE users ADD COLUMN nickname TEXT`)
   if (!colNames.includes('avatar'))               sqlite.exec(`ALTER TABLE users ADD COLUMN avatar TEXT`)
   if (!colNames.includes('pending_email'))        sqlite.exec(`ALTER TABLE users ADD COLUMN pending_email TEXT`)
+  if (!colNames.includes('role'))                 sqlite.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`)
+  if (!colNames.includes('banned'))               sqlite.exec(`ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0`)
+
+  // 将 MikiVL 用户设为管理员
+  sqlite.exec(`UPDATE users SET role = 'admin' WHERE username = 'MikiVL'`)
+
+  // 创建站点内容表
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS site_content (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `)
+
+  // 预设站点内容默认值
+  const siteDefaults = [
+    ['tagline', '探索·创造·分享'],
+    ['subtitle', '个人项目与技术探索的集合地'],
+    ['news', JSON.stringify([
+      { date: '2025-06', text: '开放笔记系统公测' },
+      { date: '2025-03', text: '网站正式上线' },
+    ])],
+    ['projects', JSON.stringify([
+      { title: 'MikiNote', desc: '基于 AI 的个人笔记系统，支持云同步', link: 'https://note.mikivl.online/app/' },
+    ])],
+  ]
+  const insertContent = sqlite.prepare(`INSERT OR IGNORE INTO site_content (key, value) VALUES (?, ?)`)
+  for (const [key, value] of siteDefaults) insertContent.run(key, value)
 }

@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken'
 import { eq } from 'drizzle-orm'
 import { db, users, inviteCodes } from '../db'
 import { requireAuth } from '../middleware/auth'
-import { sendVerifyCode, sendResetCode } from '../lib/email'
+import { sendVerifyCode, sendResetCode, sendRegisterCode } from '../lib/email'
 
 export const authRouter = new Hono()
 
@@ -16,21 +16,80 @@ function randomCode() {
   return String(Math.floor(100000 + Math.random() * 900000))
 }
 
-authRouter.post('/register', async (c) => {
-  const { username, password } = await c.req.json<{ username: string; password: string }>()
-  if (!username || !password) return c.json({ error: '用户名和密码不能为空' }, 400)
+// 待注册信息临时存储（key 为邮箱）
+const registerPending = new Map<string, {
+  username: string
+  passwordHash: string
+  code: string
+  expiry: number
+  sentAt: number
+}>()
+
+// 发送注册验证码
+authRouter.post('/register/send-code', async (c) => {
+  const { username, password, email } = await c.req.json<{ username: string; password: string; email: string }>()
+  if (!username || !password || !email) return c.json({ error: '请填写所有字段' }, 400)
   if (username.length < 2 || username.length > 20) return c.json({ error: '用户名长度 2-20 位' }, 400)
   if (password.length < 6) return c.json({ error: '密码至少 6 位' }, 400)
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: '邮箱格式不正确' }, 400)
 
-  const existing = db.select().from(users).where(eq(users.username, username)).all()
-  if (existing.length > 0) return c.json({ error: '用户名已存在' }, 409)
+  // 检查用户名是否已存在
+  const existingUser = db.select().from(users).where(eq(users.username, username)).all()
+  if (existingUser.length > 0) return c.json({ error: '用户名已存在' }, 409)
+
+  // 检查邮箱是否已被验证用户使用
+  const existingEmail = db.select().from(users).where(eq(users.email, email)).all()
+  if (existingEmail.some(u => u.emailVerified)) return c.json({ error: '该邮箱已被其他账号绑定' }, 409)
+
+  // 60秒冷却
+  const pending = registerPending.get(email)
+  if (pending && Date.now() - pending.sentAt < 60 * 1000) {
+    return c.json({ error: '请等待 60 秒后再重新发送' }, 429)
+  }
 
   const passwordHash = await bcrypt.hash(password, 10)
-  const id = nanoid()
-  db.insert(users).values({ id, username, passwordHash, cloudEnabled: false, createdAt: Date.now() }).run()
+  const code = randomCode()
+  registerPending.set(email, { username, passwordHash, code, expiry: Date.now() + 10 * 60 * 1000, sentAt: Date.now() })
 
-  const token = jwt.sign({ userId: id, username }, process.env.JWT_SECRET!, { expiresIn: '30d' })
-  return c.json({ token, user: { id, username, cloudEnabled: false, email: null, emailVerified: false, nickname: null, avatar: null } })
+  try {
+    await sendRegisterCode(email, code)
+  } catch (err) {
+    console.error('[email]', err)
+    registerPending.delete(email)
+    return c.json({ error: '邮件发送失败，请稍后再试' }, 500)
+  }
+  return c.json({ success: true })
+})
+
+// 完成注册（验证验证码）
+authRouter.post('/register', async (c) => {
+  const { email, code } = await c.req.json<{ email: string; code: string }>()
+  if (!email || !code) return c.json({ error: '参数不完整' }, 400)
+
+  const pending = registerPending.get(email)
+  if (!pending) return c.json({ error: '请先发送验证码' }, 400)
+  if (Date.now() > pending.expiry) {
+    registerPending.delete(email)
+    return c.json({ error: '验证码已过期，请重新发送' }, 400)
+  }
+  if (pending.code !== code.trim()) return c.json({ error: '验证码错误' }, 400)
+
+  // 再次检查用户名/邮箱唯一性（防止并发）
+  const existingUser = db.select().from(users).where(eq(users.username, pending.username)).all()
+  if (existingUser.length > 0) {
+    registerPending.delete(email)
+    return c.json({ error: '用户名已被注册，请更换用户名重新发送验证码' }, 409)
+  }
+
+  const id = nanoid()
+  db.insert(users).values({
+    id, username: pending.username, passwordHash: pending.passwordHash,
+    email, emailVerified: true, cloudEnabled: false, createdAt: Date.now(),
+  }).run()
+  registerPending.delete(email)
+
+  const token = jwt.sign({ userId: id, username: pending.username }, process.env.JWT_SECRET!, { expiresIn: '30d' })
+  return c.json({ token, user: { id, username: pending.username, cloudEnabled: false, role: 'user', email, emailVerified: true, nickname: null, avatar: null } })
 })
 
 authRouter.post('/login', async (c) => {
@@ -42,9 +101,10 @@ authRouter.post('/login', async (c) => {
 
   const ok = await bcrypt.compare(password, user.passwordHash)
   if (!ok) return c.json({ error: '用户名或密码错误' }, 401)
+  if (user.banned) return c.json({ error: '账号已被封禁，请联系管理员' }, 403)
 
   const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET!, { expiresIn: '30d' })
-  return c.json({ token, user: { id: user.id, username: user.username, cloudEnabled: user.cloudEnabled, email: user.email, emailVerified: user.emailVerified, nickname: user.nickname ?? null, avatar: user.avatar ?? null } })
+  return c.json({ token, user: { id: user.id, username: user.username, cloudEnabled: user.cloudEnabled, role: user.role, email: user.email, emailVerified: user.emailVerified, nickname: user.nickname ?? null, avatar: user.avatar ?? null } })
 })
 
 authRouter.post('/activate', requireAuth, async (c) => {
@@ -67,7 +127,7 @@ authRouter.get('/me', requireAuth, async (c) => {
   const userId = c.get('userId')
   const [user] = db.select().from(users).where(eq(users.id, userId)).all()
   if (!user) return c.json({ error: '用户不存在' }, 404)
-  return c.json({ id: user.id, username: user.username, cloudEnabled: user.cloudEnabled, email: user.email, emailVerified: user.emailVerified, nickname: user.nickname ?? null, avatar: user.avatar ?? null })
+  return c.json({ id: user.id, username: user.username, cloudEnabled: user.cloudEnabled, role: user.role, email: user.email, emailVerified: user.emailVerified, nickname: user.nickname ?? null, avatar: user.avatar ?? null })
 })
 
 // 更新个人资料（昵称、头像）
@@ -87,7 +147,7 @@ authRouter.put('/me', requireAuth, async (c) => {
   if (Object.keys(updates).length === 0) return c.json({ error: '无更新内容' }, 400)
   db.update(users).set(updates).where(eq(users.id, userId)).run()
   const [user] = db.select().from(users).where(eq(users.id, userId)).all()
-  return c.json({ id: user.id, username: user.username, cloudEnabled: user.cloudEnabled, email: user.email, emailVerified: user.emailVerified, nickname: user.nickname ?? null, avatar: user.avatar ?? null })
+  return c.json({ id: user.id, username: user.username, cloudEnabled: user.cloudEnabled, role: user.role, email: user.email, emailVerified: user.emailVerified, nickname: user.nickname ?? null, avatar: user.avatar ?? null })
 })
 
 // 发送邮箱绑定验证码

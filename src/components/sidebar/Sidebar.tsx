@@ -201,7 +201,17 @@ export function Sidebar() {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-          <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>笔记</span>
+          <div className="flex items-center gap-2">
+            <svg width="20" height="20" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6" y="4" width="20" height="26" rx="2" stroke="#4fc3f7" strokeWidth="1.5"/>
+              <line x1="10" y1="11" x2="22" y2="11" stroke="#4fc3f7" strokeWidth="1.2" strokeLinecap="round"/>
+              <line x1="10" y1="16" x2="22" y2="16" stroke="#4fc3f7" strokeWidth="1.2" strokeLinecap="round"/>
+              <line x1="10" y1="21" x2="17" y2="21" stroke="#4fc3f7" strokeWidth="1.2" strokeLinecap="round"/>
+              <circle cx="27" cy="27" r="5" fill="var(--bg-subtle)" stroke="#4fc3f7" strokeWidth="1.2"/>
+              <path d="M25 27l1.5 1.5L29 25" stroke="#4fc3f7" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>笔记</span>
+          </div>
           <div className="flex items-center gap-1">
             <button onClick={toggleTheme} className="toolbar-btn" title={theme === 'light' ? '暗色模式' : '亮色模式'}>
               {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}

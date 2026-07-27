@@ -11,7 +11,7 @@ export async function streamAI(
   onChunk: (text: string) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch('/api/ai/stream', {
+  const res = await fetch('https://www.mikivl.online/api/note/ai/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

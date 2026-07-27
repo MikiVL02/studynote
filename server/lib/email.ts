@@ -31,3 +31,13 @@ export async function sendResetCode(to: string, code: string) {
     html: `<p style="font-family:sans-serif">你的重置密码验证码是：<strong style="font-size:1.2em;letter-spacing:0.1em">${code}</strong>，10 分钟内有效。如非本人操作请忽略。</p>`,
   })
 }
+
+export async function sendRegisterCode(to: string, code: string) {
+  await createTransporter().sendMail({
+    from: '"MikiVL 笔记" <mikivl@126.com>',
+    to,
+    subject: '注册验证码',
+    text: `你的注册验证码是：${code}，10 分钟内有效。如非本人操作请忽略。`,
+    html: `<p style="font-family:sans-serif">你的注册验证码是：<strong style="font-size:1.2em;letter-spacing:0.1em">${code}</strong>，10 分钟内有效。如非本人操作请忽略。</p>`,
+  })
+}

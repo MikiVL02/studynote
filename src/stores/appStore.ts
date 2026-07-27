@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { db, type Note, type Folder } from '../db'
 import { generateId, extractTextFromJSON } from '../lib/utils'
 import { getToken, clearToken, parseToken, apiGetMe, type CurrentUser } from '../lib/auth'
-import { pullAll, pushAll, pushNote, pushFolder, pushDeleteNote, pushDeleteFolder, mergeNotes, mergeFolders } from '../lib/sync'
+import { pullAll, pushAll, pushNote, pushFolder, pushDeleteNote, pushDeleteFolder } from '../lib/sync'
 
 interface AppState {
   notes: Note[]
@@ -285,12 +285,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ syncStatus: 'syncing' })
     try {
       const remote = await pullAll()
-      const mergedNotes = mergeNotes(notes, remote.notes)
-      const mergedFolders = mergeFolders(folders, remote.folders)
-      await Promise.all(mergedNotes.map((n: any) => db.notes.put(n)))
-      await Promise.all(mergedFolders.map((f: any) => db.folders.put(f)))
-      await pushAll({ notes: mergedNotes, folders: mergedFolders })
-      set({ notes: mergedNotes, folders: mergedFolders, syncStatus: 'idle', _notesVersion: get()._notesVersion + 1, _filteredCache: null })
+      // 远端有数据时以远端为准，避免本地种子数据污染云端
+      // 只有远端完全为空（首次激活）才把本地数据上传
+      if (remote.notes.length > 0 || remote.folders.length > 0) {
+        await db.notes.clear()
+        await db.folders.clear()
+        await Promise.all(remote.notes.map((n: any) => db.notes.put({ ...n, tags: Array.isArray(n.tags) ? n.tags : JSON.parse(n.tags as any) })))
+        await Promise.all(remote.folders.map((f: any) => db.folders.put(f)))
+        set({ notes: remote.notes.map((n: any) => ({ ...n, tags: Array.isArray(n.tags) ? n.tags : JSON.parse(n.tags as any) })), folders: remote.folders, syncStatus: 'idle', _notesVersion: get()._notesVersion + 1, _filteredCache: null })
+      } else {
+        // 远端为空：首次激活，把本地数据推上去
+        const localNotes = notes.filter(n => n.deletedAt === null)
+        const localFolders = folders
+        await pushAll({ notes: localNotes, folders: localFolders })
+        set({ syncStatus: 'idle' })
+      }
     } catch {
       set({ syncStatus: 'error' })
     }

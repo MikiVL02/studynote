@@ -242,14 +242,14 @@ export function Sidebar() {
         {/* Nav shortcuts */}
         <nav className="px-2 space-y-0.5 shrink-0">
           <NavItem icon={<BookOpen size={14} />} label="使用指南" active={activeNoteId === '__welcome__'} onClick={() => setActiveNote('__welcome__')} />
-          <NavItem icon={<FileText size={14} />} label="所有笔记" count={notes.length} active={activeFolderId === 'all' && activeNoteId !== '__welcome__'} onClick={() => { setActiveFolder('all'); if (activeNoteId === '__welcome__') setActiveNote(null) }} />
-          <NavItem icon={<Star size={14} />} label="收藏" count={notes.filter(n => n.starred).length} active={activeFolderId === 'starred'} onClick={() => { setActiveFolder('starred'); if (activeNoteId === '__welcome__') setActiveNote(null) }} />
+          <NavItem icon={<FileText size={14} />} label="所有笔记" count={notes.length} active={activeFolderId === 'all' && activeNoteId !== '__welcome__'} onClick={() => { setActiveFolder('all'); setActiveNote(null) }} />
+          <NavItem icon={<Star size={14} />} label="收藏" count={notes.filter(n => n.starred).length} active={activeFolderId === 'starred'} onClick={() => { setActiveFolder('starred'); setActiveNote(null) }} />
           <NavItem
             icon={<Trash2 size={14} />}
             label="回收站"
             count={trashNotes().length || undefined}
             active={activeFolderId === 'trash'}
-            onClick={() => { setActiveFolder('trash'); if (activeNoteId === '__welcome__') setActiveNote(null) }}
+            onClick={() => { setActiveFolder('trash'); setActiveNote(null) }}
           />
         </nav>
 
